@@ -25,6 +25,11 @@ VOICE_PRESETS: dict[str, list[tuple[str, str]]] = {
     ]
 }
 
+# Per-voice pronunciation overrides for problematic items.
+PRONUNCIATION_OVERRIDES: dict[tuple[str, str], str] = {
+    ("m3_ryan", "acorn.mp3"): "A-corn",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -277,8 +282,11 @@ async def run(args: argparse.Namespace) -> int:
                 skipped += 1
                 continue
 
+            source_text = item["text"]
+            text = PRONUNCIATION_OVERRIDES.get((alias, item["filename"]), source_text)
+
             await synthesize(
-                text=item["text"],
+                text=text,
                 output_path=output_path,
                 voice=voice,
                 rate=args.rate,
@@ -287,9 +295,15 @@ async def run(args: argparse.Namespace) -> int:
             )
             written += 1
             if use_voice_subdirs:
-                print(f"[ok] {alias}/{output_path.name} <- {item['text']}")
+                if text == source_text:
+                    print(f"[ok] {alias}/{output_path.name} <- {source_text}")
+                else:
+                    print(f"[ok] {alias}/{output_path.name} <- {source_text} (override: {text})")
             else:
-                print(f"[ok] {output_path.name} <- {item['text']}")
+                if text == source_text:
+                    print(f"[ok] {output_path.name} <- {source_text}")
+                else:
+                    print(f"[ok] {output_path.name} <- {source_text} (override: {text})")
 
     total = len(entries) * len(voice_specs)
     print(f"Done. written={written}, skipped={skipped}, total={total}")
