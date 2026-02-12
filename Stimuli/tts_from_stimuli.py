@@ -18,7 +18,7 @@ VOICE_PRESETS: dict[str, list[tuple[str, str]]] = {
     "en_3m3f": [
         ("m1_guy", "en-US-GuyNeural"),
         ("m2_christopher", "en-US-ChristopherNeural"),
-        ("m3_ryan", "en-US-BrianNeural"),
+        ("m3_ryan", "en-US-AndrewNeural"),
         ("f1_aria", "en-US-AriaNeural"),
         ("f2_jenny", "en-US-JennyNeural"),
         ("f3_sonia", "en-US-AnaNeural"),

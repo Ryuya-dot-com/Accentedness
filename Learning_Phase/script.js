@@ -13,7 +13,7 @@
   const TALKERS = [
     { id: "m1_guy", label: "M1 (Guy)" },
     { id: "m2_christopher", label: "M2 (Christopher)" },
-    { id: "m3_ryan", label: "M3 (Brian)" },
+    { id: "m3_ryan", label: "M3 (Andrew)" },
     { id: "f1_aria", label: "F1 (Aria)" },
     { id: "f2_jenny", label: "F2 (Jenny)" },
     { id: "f3_sonia", label: "F3 (Ana)" },
@@ -524,7 +524,7 @@
       repetitions: Array.from({ length: 6 }, (_, i) => ({
         repetition: i + 1,
         talker: { id: "practice", label: "Practice Voice" },
-        audioPath: `../practice/${item.word}.mp3`,
+        audioPath: `../practice/${item.word}.wav`,
       })),
     }));
   }
@@ -554,7 +554,7 @@
           repetitions.push({
             repetition: i + 1,
             talker,
-            audioPath: `../Stimuli/audio_en_6voices/${talker.id}/${item.word}.mp3`,
+            audioPath: `../Stimuli/audio_en_6voices/${talker.id}/${item.word}.wav`,
           });
         }
         blocks.push({
