@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accentedness Testing Phase</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #141414;
+      --panel-border: #343434;
+      --text: #f4f4f4;
+      --muted: #c6c6c6;
+      --accent: #2f80ed;
+      --ok: #27ae60;
+      --warn: #f5b041;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+    body.running { cursor: none; }
+    #app {
+      width: 100%;
+      max-width: 980px;
+    }
+    .hidden { display: none !important; }
+    #config {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    #config h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+    #config p, #config li {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    label {
+      display: block;
+      margin: 10px 0;
+      font-weight: 600;
+    }
+    input {
+      margin-top: 6px;
+      width: min(280px, 100%);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #4a4a4a;
+      background: #222;
+      color: var(--text);
+      font-size: 15px;
+    }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button {
+      border: none;
+      border-radius: 7px;
+      padding: 10px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #download-btn { background: var(--ok); }
+    #status {
+      min-height: 24px;
+      margin: 8px 0 4px;
+      color: #d7d7d7;
+      font-size: 15px;
+    }
+    #log {
+      min-height: 22px;
+      color: #b8b8b8;
+      font-size: 13px;
+    }
+    #experiment {
+      position: relative;
+      width: 100%;
+      height: min(74vh, 720px);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: #000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #progress {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(88%, 760px);
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+      align-items: center;
+    }
+    #progress-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid #353535;
+      background: #121212;
+      overflow: hidden;
+    }
+    #progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #62a8ff, #90dbff);
+      transition: width 0.16s ease;
+    }
+    #progress-label {
+      color: #c7c7c7;
+      font-size: 12px;
+    }
+    #trial {
+      width: min(90%, 840px);
+      text-align: center;
+      display: none;
+    }
+    #jp-word {
+      font-size: clamp(38px, 6vw, 74px);
+      line-height: 1.2;
+      font-weight: 700;
+      margin-bottom: 14px;
+      word-break: keep-all;
+    }
+    #trial-instruction {
+      font-size: 20px;
+      color: #e3e3e3;
+      margin-bottom: 8px;
+    }
+    #trial-keys {
+      font-size: 15px;
+      color: #b7b7b7;
+    }
+    #message {
+      font-size: clamp(24px, 3.5vw, 42px);
+      line-height: 1.4;
+      white-space: pre-line;
+      text-align: center;
+      padding: 0 24px;
+    }
+    .warn {
+      margin-top: 8px;
+      color: var(--warn);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="config">
+      <h1>Testing Phase</h1>
+      <p>日本語訳と音声が一致しているかを判断してください。<br>一致なら <strong>J (Yes)</strong>、不一致なら <strong>F (No)</strong> を押します。</p>
+      <label>参加者ID (例: 001)
+        <input id="participant-id" type="text" placeholder="001">
+      </label>
+      <ul>
+        <li>本試行は100トライアル（Yes/No判定）です。</li>
+        <li>反応時間の制限はありません。音声が聞こえたら判断してください。</li>
+        <li>練習試行では、学習時に使った動物語を使います。</li>
+        <li>テスト音声は学習時に未使用の男性・女性話者です。</li>
+      </ul>
+      <div class="warn">Google Chrome 推奨です（音声再生・ダウンロードの安定性のため）。</div>
+      <div class="btn-row">
+        <button id="prepare-btn">準備（刺激生成・読み込み）</button>
+        <button id="start-practice-btn" class="hidden">練習開始</button>
+        <button id="start-main-btn" class="hidden">本試行開始（100 trials）</button>
+        <button id="download-btn" class="hidden">結果をExcelで保存</button>
+      </div>
+      <div id="status"></div>
+      <div id="log"></div>
+    </div>
+
+    <div id="experiment">
+      <div id="progress">
+        <div id="progress-track"><div id="progress-fill"></div></div>
+        <div id="progress-label"></div>
+      </div>
+      <div id="trial">
+        <div id="jp-word"></div>
+        <div id="trial-instruction">一致していれば Yes、不一致なら No</div>
+        <div id="trial-keys">J = Yes / F = No</div>
+      </div>
+      <div id="message">「準備」を押して開始してください</div>
+    </div>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
