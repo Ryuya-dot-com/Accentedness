@@ -13,10 +13,10 @@
   const TALKERS = [
     { id: "m1_guy", label: "M1 (Guy)" },
     { id: "m2_christopher", label: "M2 (Christopher)" },
-    { id: "m3_ryan", label: "M3 (Ryan)" },
+    { id: "m3_ryan", label: "M3 (Brian)" },
     { id: "f1_aria", label: "F1 (Aria)" },
     { id: "f2_jenny", label: "F2 (Jenny)" },
-    { id: "f3_sonia", label: "F3 (Sonia)" },
+    { id: "f3_sonia", label: "F3 (Ana)" },
   ];
 
   const PRACTICE_ITEMS = [
