@@ -1,6 +1,9 @@
 (() => {
   const TRIAL_WINDOW_MS = 4000;
-  const EXPERIMENT_VERSION = "learning_phase_v3.2.0";
+  const RECORDING_BEEP_MS = 180;
+  const RECORDING_BEEP_HZ = 1000;
+  const RECORDING_BEEP_GAIN = 0.06;
+  const EXPERIMENT_VERSION = "learning_phase_v3.3.0";
   const EXPERIMENT_BUILD_DATE = "2026-02-12";
   const RECOVERY_DB_NAME = "accentedness_learning_recovery";
   const RECOVERY_DB_VERSION = 1;
@@ -121,6 +124,39 @@
   };
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function playRecordingStartBeep() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!playRecordingStartBeep.ctx || playRecordingStartBeep.ctx.state === "closed") {
+      playRecordingStartBeep.ctx = new Ctx();
+    }
+
+    const ctx = playRecordingStartBeep.ctx;
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+
+    const now = ctx.currentTime;
+    const durationSec = RECORDING_BEEP_MS / 1000;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(RECORDING_BEEP_HZ, now);
+
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.exponentialRampToValueAtTime(RECORDING_BEEP_GAIN, now + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    await new Promise((resolve) => {
+      oscillator.onended = resolve;
+      oscillator.start(now);
+      oscillator.stop(now + durationSec);
+    });
+  }
 
   function showMessage(text) {
     stopTrialTimer();
@@ -1089,6 +1125,7 @@
           audioOnsetEpochMs = Date.now();
           await playbackEnded;
 
+          await playRecordingStartBeep();
           trialStartEpochMs = Date.now();
           await recorder.start();
           recordingStarted = true;
