@@ -1,6 +1,6 @@
 (() => {
-  const TRIAL_WINDOW_MS = 6000;
-  const EXPERIMENT_VERSION = "learning_phase_v3.1.0";
+  const TRIAL_WINDOW_MS = 4000;
+  const EXPERIMENT_VERSION = "learning_phase_v3.2.0";
   const EXPERIMENT_BUILD_DATE = "2026-02-12";
   const RECOVERY_DB_NAME = "accentedness_learning_recovery";
   const RECOVERY_DB_VERSION = 1;
@@ -1060,25 +1060,55 @@
         audio.pause();
         audio.currentTime = 0;
 
-        const trialStartEpochMs = Date.now();
-        await recorder.start();
-        startTrialTimer(TRIAL_WINDOW_MS);
         let audioOnsetPerf = null;
         let audioOnsetEpochMs = null;
+        let trialStartEpochMs = null;
+        let rec = null;
+        let recordingStarted = false;
+        let cleanupPlayback = () => {};
         try {
+          const playbackEnded = new Promise((resolve, reject) => {
+            const onEnded = () => {
+              cleanupPlayback();
+              resolve();
+            };
+            const onError = () => {
+              cleanupPlayback();
+              reject(new Error(`音声再生に失敗しました: ${rep.audioPath}`));
+            };
+            cleanupPlayback = () => {
+              audio.removeEventListener("ended", onEnded);
+              audio.removeEventListener("error", onError);
+            };
+            audio.addEventListener("ended", onEnded);
+            audio.addEventListener("error", onError);
+          });
+
           await audio.play();
           audioOnsetPerf = performance.now();
           audioOnsetEpochMs = Date.now();
-          await delay(TRIAL_WINDOW_MS);
-        } finally {
-          stopTrialTimer();
-        }
+          await playbackEnded;
 
-        const rec = recorder.stop();
+          trialStartEpochMs = Date.now();
+          await recorder.start();
+          recordingStarted = true;
+          startTrialTimer(TRIAL_WINDOW_MS);
+          await delay(TRIAL_WINDOW_MS);
+          rec = recorder.stop();
+        } finally {
+          if (recordingStarted && !rec) {
+            recorder.stop();
+          }
+          stopTrialTimer();
+          cleanupPlayback();
+        }
         audio.pause();
         audio.currentTime = 0;
         if (audioOnsetPerf === null || audioOnsetEpochMs === null) {
           throw new Error(`音声再生に失敗しました: ${rep.audioPath}`);
+        }
+        if (!rec || trialStartEpochMs === null) {
+          throw new Error("録音の開始または停止に失敗しました。");
         }
 
         const safeWord = sanitizeName(block.word);
