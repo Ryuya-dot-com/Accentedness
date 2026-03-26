@@ -3,8 +3,9 @@
   const RECORDING_BEEP_MS = 180;
   const RECORDING_BEEP_HZ = 1000;
   const RECORDING_BEEP_GAIN = 0.06;
-  const EXPERIMENT_VERSION = "learning_phase_v3.3.0";
-  const EXPERIMENT_BUILD_DATE = "2026-02-12";
+  const EXPERIMENT_VERSION = "learning_phase_v4.0.0";
+  const EXPERIMENT_BUILD_DATE = "2026-03-26";
+  const REPETITION_COUNT = 2;
   const RECOVERY_DB_NAME = "accentedness_learning_recovery";
   const RECOVERY_DB_VERSION = 1;
   const RECOVERY_SESSIONS_STORE = "sessions";
@@ -12,11 +13,7 @@
   const RECOVERY_BY_SESSION_INDEX = "by_session";
   const TALKERS = [
     { id: "m1_guy", label: "M1 (Guy)" },
-    { id: "m2_christopher", label: "M2 (Christopher)" },
-    { id: "m3_ryan", label: "M3 (Andrew)" },
     { id: "f1_aria", label: "F1 (Aria)" },
-    { id: "f2_jenny", label: "F2 (Jenny)" },
-    { id: "f3_sonia", label: "F3 (Ana)" },
   ];
 
   const PRACTICE_ITEMS = [
@@ -484,16 +481,15 @@
 
   function buildCounterbalance(participantId) {
     const numericId = parseNumericId(participantId);
-    const conditionIndex = (numericId - 1) % 24;
-    const listMappingFactor = Math.floor(conditionIndex / 12);
-    const orderFactor = Math.floor((conditionIndex % 12) / 6);
-    const talkerFactor = conditionIndex % 6;
+    const conditionIndex = (numericId - 1) % 4;
+    const orderFactor = Math.floor(conditionIndex / TALKERS.length);
+    const talkerFactor = conditionIndex % TALKERS.length;
 
-    const singleList = listMappingFactor === 0 ? 1 : 2;
-    const multiList = singleList === 1 ? 2 : 1;
+    const singleList = "all";
+    const multiList = "";
     const listOrder = orderFactor === 0 ? [1, 2] : [2, 1];
     const singleTalker = TALKERS[talkerFactor];
-    const multiRotation = rotate(TALKERS, talkerFactor);
+    const multiRotation = [];
 
     return {
       numericId,
@@ -503,7 +499,7 @@
       listOrder,
       singleTalker,
       multiRotation,
-      listAssignmentLabel: singleList === 1 ? "L1=Single,L2=Multi" : "L1=Multi,L2=Single",
+      listAssignmentLabel: "L1=Single,L2=Single",
       listOrderLabel: listOrder.join("->"),
     };
   }
@@ -521,7 +517,7 @@
       condition: "Single",
       word: item.word,
       jp: item.jp,
-      repetitions: Array.from({ length: 6 }, (_, i) => ({
+      repetitions: Array.from({ length: REPETITION_COUNT }, (_, i) => ({
         repetition: i + 1,
         talker: { id: "practice", label: "Practice Voice" },
         audioPath: `../practice/${item.word}.wav`,
@@ -540,17 +536,14 @@
     let blockNo = 0;
 
     counterbalance.listOrder.forEach((listId) => {
-      const condition = listId === counterbalance.singleList ? "Single" : "Multi";
+      const condition = "Single";
       const sourceWords = wordsByList[listId];
 
       sourceWords.forEach((item) => {
         blockNo += 1;
         const repetitions = [];
-        for (let i = 0; i < 6; i += 1) {
-          const talker =
-            condition === "Single"
-              ? counterbalance.singleTalker
-              : counterbalance.multiRotation[i % counterbalance.multiRotation.length];
+        for (let i = 0; i < REPETITION_COUNT; i += 1) {
+          const talker = counterbalance.singleTalker;
           repetitions.push({
             repetition: i + 1,
             talker,
@@ -1184,7 +1177,7 @@
           multiList: counterbalance.multiList,
           listOrder: counterbalance.listOrder.join("->"),
           singleTalker: counterbalance.singleTalker.id,
-          multiRotationStart: counterbalance.multiRotation[0].id,
+          multiRotationStart: counterbalance.multiRotation[0]?.id || "",
         });
 
         if (onTrialPersist) {
