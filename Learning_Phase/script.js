@@ -3,25 +3,46 @@
   const RECORDING_BEEP_MS = 180;
   const RECORDING_BEEP_HZ = 1000;
   const RECORDING_BEEP_GAIN = 0.06;
-  const EXPERIMENT_VERSION = "learning_phase_v4.0.0";
-  const EXPERIMENT_BUILD_DATE = "2026-03-26";
-  const REPETITION_COUNT = 2;
+  const EXPERIMENT_VERSION = "learning_phase_v5.0.0";
+  const EXPERIMENT_BUILD_DATE = "2026-04-14";
   const RECOVERY_DB_NAME = "accentedness_learning_recovery";
   const RECOVERY_DB_VERSION = 1;
   const RECOVERY_SESSIONS_STORE = "sessions";
   const RECOVERY_TRIALS_STORE = "trials";
   const RECOVERY_BY_SESSION_INDEX = "by_session";
+
+  const NATIVE_LANGUAGES = {
+    english: { id: "english", label: "English", labelJa: "英語" },
+    japanese: { id: "japanese", label: "Japanese", labelJa: "日本語" },
+    chinese: { id: "chinese", label: "Chinese", labelJa: "中国語" },
+  };
+
   const TALKERS = [
     { id: "m1_guy", label: "M1 (Guy)" },
     { id: "f1_aria", label: "F1 (Aria)" },
   ];
 
   const PRACTICE_ITEMS = [
-    { word: "elephant", jp: "ぞう", list: 0 },
-    { word: "fox", jp: "きつね", list: 0 },
-    { word: "giraffe", jp: "きりん", list: 0 },
-    { word: "hippopotamus", jp: "カバ", list: 0 },
-    { word: "monkey", jp: "さる", list: 0 },
+    {
+      word: "coffee",
+      audioPath: "../practice_calibration/coffee.wav",
+      labels: { english: "coffee", japanese: "コーヒー", chinese: "咖啡" },
+    },
+    {
+      word: "pizza",
+      audioPath: "../practice_calibration/pizza.wav",
+      labels: { english: "pizza", japanese: "ピザ", chinese: "披萨" },
+    },
+    {
+      word: "sofa",
+      audioPath: "../practice_calibration/sofa.wav",
+      labels: { english: "sofa", japanese: "ソファ", chinese: "沙发" },
+    },
+    {
+      word: "chocolate",
+      audioPath: "../practice_calibration/chocolate.wav",
+      labels: { english: "chocolate", japanese: "チョコレート", chinese: "巧克力" },
+    },
   ];
 
   const STIMULI = [
@@ -82,10 +103,10 @@
 
   const preloadBtn = document.getElementById("preload-btn");
   const volumeCheckBtn = document.getElementById("volume-check-btn");
-  const startPracticeBtn = document.getElementById("start-practice-btn");
-  const confirmPracticeBtn = document.getElementById("confirm-practice-btn");
-  const downloadFinalBtn = document.getElementById("download-final-btn");
+  const startPassBtn = document.getElementById("start-pass-btn");
+  const redownloadZipBtn = document.getElementById("redownload-zip-btn");
   const participantInput = document.getElementById("participant-id");
+  const nativeLanguageSelect = document.getElementById("native-language");
   const configEl = document.getElementById("config");
   const statusEl = document.getElementById("status");
   const logEl = document.getElementById("log");
@@ -94,14 +115,19 @@
   const progressLabelEl = document.getElementById("progress-label");
   const mainDisplayEl = document.getElementById("main-display");
   const jpWordEl = document.getElementById("jp-word");
+  const trialHintEl = document.getElementById("trial-hint");
   const trialTimerEl = document.getElementById("trial-timer");
   const trialTimerFillEl = document.getElementById("trial-timer-fill");
   const messageEl = document.getElementById("message");
+  const trialActionsEl = document.getElementById("trial-actions");
+  const acceptRecordingBtn = document.getElementById("accept-recording-btn");
+  const retakeRecordingBtn = document.getElementById("retake-recording-btn");
   const micCheckEl = document.getElementById("mic-check");
   const micMeterFillEl = document.getElementById("mic-meter-fill");
 
   let preparedSession = null;
-  let finalZipBlob = null;
+  let lastZipBlob = null;
+  let lastZipName = "";
   let isRunning = false;
   let volumeCheckCompleted = false;
   let micMeterRaf = null;
@@ -121,6 +147,18 @@
   };
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function pad2(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function pad3(value) {
+    return String(value).padStart(3, "0");
+  }
+
+  function pad4(value) {
+    return String(value).padStart(4, "0");
+  }
 
   async function playRecordingStartBeep() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -155,32 +193,42 @@
     });
   }
 
+  function hideTrialActions() {
+    if (trialActionsEl) trialActionsEl.classList.add("hidden");
+  }
+
   function showMessage(text) {
     stopTrialTimer();
+    hideTrialActions();
     mainDisplayEl.style.display = "none";
     messageEl.textContent = text;
     messageEl.style.display = "block";
     document.body.classList.remove("presenting");
   }
 
-  function showStimulus(block) {
+  function showStimulus(trial, pass, takeNo) {
+    hideTrialActions();
     messageEl.style.display = "none";
     mainDisplayEl.style.display = "flex";
-    jpWordEl.textContent = block.jp;
+    jpWordEl.textContent = trial.displayText || trial.jp;
+    trialHintEl.textContent =
+      `${pass.shortInstruction} / Take ${takeNo}. ビープ音のあとに聞こえた英単語を発話してください。`;
     document.body.classList.add("presenting");
   }
 
   function hideStimulus() {
     mainDisplayEl.style.display = "none";
     messageEl.style.display = "none";
+    hideTrialActions();
     stopTrialTimer();
     document.body.classList.remove("presenting");
   }
 
-  function showProgress(done, total) {
+  function showProgress(done, total, label) {
     const pct = total <= 0 ? 0 : Math.min(100, Math.max(0, (done / total) * 100));
     progressFillEl.style.width = `${pct}%`;
-    progressLabelEl.textContent = "";
+    progressLabelEl.textContent = `${label}: ${done}/${total}`;
+    progressLabelEl.style.display = "block";
     progressEl.style.display = "flex";
   }
 
@@ -363,8 +411,6 @@
         meta: meta || null,
         trialRecords: sorted,
         rows,
-        practiceRows: rows.filter((r) => r.phase === "practice"),
-        mainRows: rows.filter((r) => r.phase === "main"),
       };
     });
   }
@@ -393,11 +439,17 @@
     });
   }
 
-  async function getRecoveryArtifacts(sessionId, phaseFilter = null) {
+  function recoveryRecordMatches(record, filter) {
+    if (!filter) return true;
+    const row = record.row || {};
+    if (filter.phase && row.phase !== filter.phase) return false;
+    if (filter.passIndex && row.passIndex !== filter.passIndex) return false;
+    return true;
+  }
+
+  async function getRecoveryArtifacts(sessionId, filter = null) {
     const snapshot = await loadRecoverySnapshot(sessionId);
-    const records = phaseFilter
-      ? snapshot.trialRecords.filter((r) => r.row.phase === phaseFilter)
-      : snapshot.trialRecords.slice();
+    const records = snapshot.trialRecords.filter((record) => recoveryRecordMatches(record, filter));
     const files = [];
     for (const record of records) {
       if (!record.row?.recordingFile || !record.wavBlob) continue;
@@ -454,10 +506,6 @@
     return out;
   }
 
-  function rotate(arr, startIndex) {
-    return [...arr.slice(startIndex), ...arr.slice(0, startIndex)];
-  }
-
   function isChrome() {
     const ua = navigator.userAgent || "";
     const hasChrome = /Chrome\/\d+/.test(ua);
@@ -479,98 +527,232 @@
     });
   }
 
+  function formatDb(value) {
+    if (!Number.isFinite(value)) return "";
+    return `${value.toFixed(1)} dBFS`;
+  }
+
+  function peakToDbfs(peak) {
+    return peak > 0 ? 20 * Math.log10(peak) : -Infinity;
+  }
+
+  function assessRecordingLevel(rec) {
+    const peak = rec.peak || 0;
+    const rms = rec.rms || 0;
+    const peakDbfs = peakToDbfs(peak);
+    if (peak >= 0.98) {
+      return {
+        code: "clip_risk",
+        label: "音量が大きすぎる可能性があります",
+        advice: "マイクから少し離れるか、少し小さめに発話してください。",
+        peakDbfs,
+      };
+    }
+    if (rms < 0.008 || peak < 0.05) {
+      return {
+        code: "too_quiet",
+        label: "音量が小さめです",
+        advice: "マイクに少し近づくか、少し大きめに発話してください。",
+        peakDbfs,
+      };
+    }
+    if (peak > 0.85) {
+      return {
+        code: "loud",
+        label: "音量はやや大きめですが使用可能です",
+        advice: "音割れが気になる場合は少しだけマイクから離れてください。",
+        peakDbfs,
+      };
+    }
+    return {
+      code: "good",
+      label: "録音レベルは良好です",
+      advice: "この距離と声量を保ってください。",
+      peakDbfs,
+    };
+  }
+
+  function formatRecordingLevel(rec) {
+    const level = assessRecordingLevel(rec);
+    const peakText = formatDb(level.peakDbfs);
+    return `録音レベル: ${level.label}${peakText ? `（peak ${peakText}）` : ""}\n${level.advice}`;
+  }
+
+  function waitForTrialDecision(pass, trial, takeNo, rec) {
+    stopTrialTimer();
+    mainDisplayEl.style.display = "none";
+    const levelText = rec ? `\n\n${formatRecordingLevel(rec)}` : "";
+    messageEl.textContent =
+      `録音が終了しました\n${pass.label}\n${trial.jp} / ${trial.word}\n` +
+      `Take ${takeNo} を使う場合は「次へ」、録り直す場合は「もう一度録音する」を押してください。` +
+      levelText;
+    messageEl.style.display = "block";
+    document.body.classList.remove("presenting");
+    trialActionsEl.classList.remove("hidden");
+
+    return new Promise((resolve) => {
+      const cleanup = (decision) => {
+        acceptRecordingBtn.removeEventListener("click", onAccept);
+        retakeRecordingBtn.removeEventListener("click", onRetake);
+        document.removeEventListener("keydown", onKeyDown);
+        hideTrialActions();
+        resolve(decision);
+      };
+
+      const onAccept = () => cleanup("accept");
+      const onRetake = () => cleanup("retake");
+      const onKeyDown = (ev) => {
+        if (ev.repeat) return;
+        if (ev.code === "KeyR") {
+          ev.preventDefault();
+          cleanup("retake");
+        }
+        if (ev.code === "Enter" || ev.code === "Space" || ev.key === " ") {
+          ev.preventDefault();
+          cleanup("accept");
+        }
+      };
+
+      acceptRecordingBtn.addEventListener("click", onAccept);
+      retakeRecordingBtn.addEventListener("click", onRetake);
+      document.addEventListener("keydown", onKeyDown);
+    });
+  }
+
   function buildCounterbalance(participantId) {
     const numericId = parseNumericId(participantId);
     const conditionIndex = (numericId - 1) % 4;
     const orderFactor = Math.floor(conditionIndex / TALKERS.length);
     const talkerFactor = conditionIndex % TALKERS.length;
-
-    const singleList = "all";
-    const multiList = "";
     const listOrder = orderFactor === 0 ? [1, 2] : [2, 1];
     const singleTalker = TALKERS[talkerFactor];
-    const multiRotation = [];
 
     return {
       numericId,
       conditionIndex,
-      singleList,
-      multiList,
       listOrder,
       singleTalker,
-      multiRotation,
-      listAssignmentLabel: "L1=Single,L2=Single",
       listOrderLabel: listOrder.join("->"),
     };
   }
 
-  function buildPracticeBlocks(participantId) {
-    const numericId = parseNumericId(participantId);
-    const rng = mulberry32(numericId * 1000 + 17);
-    const ordered = seededShuffle(PRACTICE_ITEMS, rng);
-    return ordered.map((item, idx) => ({
-      phase: "practice",
-      phaseLabel: "Practice",
-      blockIndex: idx + 1,
-      blockTotal: ordered.length,
-      list: 0,
-      condition: "Single",
-      word: item.word,
-      jp: item.jp,
-      repetitions: Array.from({ length: REPETITION_COUNT }, (_, i) => ({
-        repetition: i + 1,
-        talker: { id: "practice", label: "Practice Voice" },
-        audioPath: `../practice/${item.word}.wav`,
-      })),
-    }));
+  function getPassDefinitions(nativeLanguageId) {
+    const nativeLanguage = NATIVE_LANGUAGES[nativeLanguageId] || NATIVE_LANGUAGES.japanese;
+    const naturalPass = {
+      passIndex: 1,
+      id: "natural_english",
+      label: "Pass 1: Natural English",
+      condition: "natural_english",
+      shortInstruction: "自然な英語",
+      instruction:
+        "1回目は、あなたが普段いちばん自然だと思う英語でリピートしてください。訛りを意識して強めたり弱めたりせず、聞こえた英単語をそのまま発話してください。",
+    };
+
+    if (nativeLanguage.id === "english") {
+      return [
+        naturalPass,
+        {
+          passIndex: 2,
+          id: "clear_english",
+          label: "Pass 2: Clear English",
+          condition: "clear_english",
+          shortInstruction: "ゆっくり・明瞭な英語",
+          instruction:
+            "2回目は、自然な英語を保ったまま、少しゆっくり・はっきり発話してください。日本語や中国語の訛りをまねる必要はありません。",
+        },
+      ];
+    }
+
+    return [
+      naturalPass,
+      {
+        passIndex: 2,
+        id: `${nativeLanguage.id}_accented_english`,
+        label: `Pass 2: ${nativeLanguage.label} accented English`,
+        condition: `${nativeLanguage.id}_accented_english`,
+        shortInstruction: `${nativeLanguage.labelJa}の訛りを強めた英語`,
+        instruction:
+          `2回目は、自分の母語（${nativeLanguage.labelJa}）の特徴が出るように英語でリピートしてください。単語は英語のまま、無理に別人をまねず、あなた自身の${nativeLanguage.labelJa}らしい訛りを意識してください。`,
+      },
+      {
+        passIndex: 3,
+        id: "intermediate_accent",
+        label: "Pass 3: Intermediate accent",
+        condition: "intermediate_accent",
+        shortInstruction: "自然な英語と母語訛りの中間",
+        instruction:
+          "3回目は、1回目の自然な英語と2回目の母語訛りの中間くらいでリピートしてください。訛りを完全には消さず、強すぎもしない発話を目指してください。",
+      },
+    ];
   }
 
-  function buildMainBlocks(counterbalance) {
+  function buildPracticePass(nativeLanguageId) {
+    const nativeLanguage = NATIVE_LANGUAGES[nativeLanguageId] || NATIVE_LANGUAGES.japanese;
+    return {
+      passIndex: 0,
+      id: "practice_calibration",
+      label: "Practice: volume and retake check",
+      condition: "practice_calibration",
+      shortInstruction: "練習",
+      instruction:
+        `練習では、${nativeLanguage.labelJa}で見慣れた借用語を使って、音量と録り直し操作を確認します。` +
+        "ここでの録音は最終ZIPには保存されません。声の大きさとマイクまでの距離をここで調整してください。",
+      trials: PRACTICE_ITEMS.map((item, idx) => ({
+        phase: "practice",
+        word: item.word,
+        jp: item.labels[nativeLanguage.id] || item.word,
+        displayText: item.labels[nativeLanguage.id] || item.word,
+        list: 0,
+        blockIndex: idx + 1,
+        blockTotal: PRACTICE_ITEMS.length,
+        talker: { id: "practice_calibration", label: "Practice Voice" },
+        audioPath: item.audioPath,
+        trialInPass: idx + 1,
+        trialTotalInPass: PRACTICE_ITEMS.length,
+      })),
+    };
+  }
+
+  function buildMainWordOrder(counterbalance) {
     const rng1 = mulberry32(counterbalance.numericId * 1000 + 11);
     const rng2 = mulberry32(counterbalance.numericId * 1000 + 13);
     const orderedList1 = seededShuffle(LIST1, rng1);
     const orderedList2 = seededShuffle(LIST2, rng2);
     const wordsByList = { 1: orderedList1, 2: orderedList2 };
-
-    const blocks = [];
-    let blockNo = 0;
+    const words = [];
 
     counterbalance.listOrder.forEach((listId) => {
-      const condition = "Single";
-      const sourceWords = wordsByList[listId];
-
-      sourceWords.forEach((item) => {
-        blockNo += 1;
-        const repetitions = [];
-        for (let i = 0; i < REPETITION_COUNT; i += 1) {
-          const talker = counterbalance.singleTalker;
-          repetitions.push({
-            repetition: i + 1,
-            talker,
-            audioPath: `../Stimuli/audio_en_6voices/${talker.id}/${item.word}.wav`,
-          });
-        }
-        blocks.push({
-          phase: "main",
-          phaseLabel: "Main",
-          blockIndex: blockNo,
-          blockTotal: 50,
-          list: listId,
-          condition,
-          word: item.word,
-          jp: item.jp,
-          repetitions,
+      wordsByList[listId].forEach((item) => {
+        words.push({
+          ...item,
+          blockIndex: words.length + 1,
+          blockTotal: STIMULI.length,
+          talker: counterbalance.singleTalker,
+          audioPath: `../Stimuli/audio_en_6voices/${counterbalance.singleTalker.id}/${item.word}.wav`,
         });
       });
     });
 
-    return blocks;
+    return words;
   }
 
-  function collectAudioPaths(practiceBlocks, mainBlocks) {
+  function buildRecordingPasses(counterbalance, nativeLanguageId) {
+    const words = buildMainWordOrder(counterbalance);
+    return getPassDefinitions(nativeLanguageId).map((pass) => ({
+      ...pass,
+      trials: words.map((word, idx) => ({
+        ...word,
+        phase: "main",
+        trialInPass: idx + 1,
+        trialTotalInPass: words.length,
+      })),
+    }));
+  }
+
+  function collectAudioPaths(passes) {
     const unique = new Set();
-    [...practiceBlocks, ...mainBlocks].forEach((block) => {
-      block.repetitions.forEach((rep) => unique.add(rep.audioPath));
+    passes.forEach((pass) => {
+      pass.trials.forEach((trial) => unique.add(trial.audioPath));
     });
     return [...unique];
   }
@@ -632,6 +814,23 @@
     return new Uint8Array(buffer);
   }
 
+  function analyzeRecordingChunks(chunks) {
+    let totalSamples = 0;
+    let sumSquares = 0;
+    let peak = 0;
+    chunks.forEach((chunk) => {
+      for (let i = 0; i < chunk.length; i += 1) {
+        const sample = chunk[i];
+        const abs = Math.abs(sample);
+        if (abs > peak) peak = abs;
+        sumSquares += sample * sample;
+        totalSamples += 1;
+      }
+    });
+    const rms = totalSamples > 0 ? Math.sqrt(sumSquares / totalSamples) : 0;
+    return { rms, peak, peakDbfs: peakToDbfs(peak) };
+  }
+
   class WavRecorder {
     constructor(stream) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -676,11 +875,16 @@
     stop() {
       this.isRecording = false;
       const recordingStopPerf = performance.now();
+      const stats = analyzeRecordingChunks(this.chunks);
       const wavBytes = encodeWav(this.chunks, this.audioCtx.sampleRate);
       return {
         wavBytes,
         durationMs: recordingStopPerf - this.recordingStartPerf,
         sampleRate: this.audioCtx.sampleRate,
+        rms: stats.rms,
+        peak: stats.peak,
+        peakDbfs: stats.peakDbfs,
+        levelCode: assessRecordingLevel(stats).code,
       };
     }
 
@@ -840,69 +1044,84 @@
 
   const LOG_COLUMNS = [
     "participant_id",
+    "native_language",
     "experiment_version",
     "serial_no",
     "phase",
-    "trial_in_phase",
+    "pass_index",
+    "pass_id",
+    "pass_label",
+    "condition",
+    "trial_in_pass",
+    "trial_total_in_pass",
     "global_trial",
     "block_index",
     "block_total",
     "list",
-    "condition",
     "word",
     "japanese",
-    "repetition",
+    "take_no",
     "talker_id",
     "talker_label",
     "stimulus_file",
     "recording_file",
     "trial_window_ms",
     "recording_duration_ms",
+    "recording_rms",
+    "recording_peak",
+    "recording_peak_dbfs",
+    "recording_level",
     "trial_start_epoch_ms",
     "audio_onset_epoch_ms",
-    "audio_onset_from_phase_ms",
+    "audio_onset_from_pass_ms",
     "counterbalance_index",
-    "single_list",
-    "multi_list",
     "list_order",
     "single_talker",
-    "multi_rotation_start",
   ];
 
   function buildLogTable(rows) {
     const out = [LOG_COLUMNS];
-    rows.forEach((r) => {
-      out.push([
-        r.participantId,
-        r.experimentVersion || EXPERIMENT_VERSION,
-        r.serialNo,
-        r.phase,
-        r.trialInPhase,
-        r.globalTrial,
-        r.blockIndex,
-        r.blockTotal,
-        r.list,
-        r.condition,
-        r.word,
-        r.jp,
-        r.repetition,
-        r.talkerId,
-        r.talkerLabel,
-        r.stimulusFile,
-        r.recordingFile,
-        r.trialWindowMs,
-        r.recordingDurationMs.toFixed(3),
-        r.trialStartEpochMs,
-        r.audioOnsetEpochMs,
-        r.audioOnsetFromPhaseMs.toFixed(3),
-        r.cbIndex,
-        r.singleList,
-        r.multiList,
-        r.listOrder,
-        r.singleTalker,
-        r.multiRotationStart,
-      ]);
-    });
+    rows
+      .slice()
+      .sort((a, b) => (a.serialNo || 0) - (b.serialNo || 0))
+      .forEach((r) => {
+        out.push([
+          r.participantId,
+          r.nativeLanguage,
+          r.experimentVersion || EXPERIMENT_VERSION,
+          r.serialNo,
+          r.phase,
+          r.passIndex,
+          r.passId,
+          r.passLabel,
+          r.condition,
+          r.trialInPass,
+          r.trialTotalInPass,
+          r.globalTrial,
+          r.blockIndex,
+          r.blockTotal,
+          r.list,
+          r.word,
+          r.jp,
+          r.takeNo,
+          r.talkerId,
+          r.talkerLabel,
+          r.stimulusFile,
+          r.recordingFile,
+          r.trialWindowMs,
+          r.recordingDurationMs.toFixed(3),
+          r.recordingRms.toFixed(6),
+          r.recordingPeak.toFixed(6),
+          Number.isFinite(r.recordingPeakDbfs) ? r.recordingPeakDbfs.toFixed(3) : "",
+          r.recordingLevel,
+          r.trialStartEpochMs,
+          r.audioOnsetEpochMs,
+          r.audioOnsetFromPassMs.toFixed(3),
+          r.cbIndex,
+          r.listOrder,
+          r.singleTalker,
+        ]);
+      });
     return out;
   }
 
@@ -1031,205 +1250,378 @@
     hideStimulus();
   }
 
-  async function runPhase({
-    phaseName,
-    phaseLabel,
-    blocks,
-    participantId,
-    counterbalance,
-    audioMap,
-    recorder,
-    globalTrialRef,
-    outputPrefix,
-    existingRows = [],
-    onTrialPersist = null,
-  }) {
-    const totalTrials = blocks.reduce((acc, b) => acc + b.repetitions.length, 0);
-    const rows = existingRows
-      .slice()
-      .sort((a, b) => (a.serialNo || 0) - (b.serialNo || 0));
-    let completed = rows.length;
-    const phaseStartPerf = performance.now();
-    const completedByBlock = new Map();
-    rows.forEach((r) => {
-      const count = completedByBlock.get(r.blockIndex) || 0;
-      completedByBlock.set(r.blockIndex, count + 1);
-    });
-    let firstPendingPrompted = false;
-
-    for (let b = 0; b < blocks.length; b += 1) {
-      const block = blocks[b];
-      const doneInBlock = completedByBlock.get(block.blockIndex) || 0;
-      if (doneInBlock >= block.repetitions.length) {
-        continue;
-      }
-      if (!firstPendingPrompted) {
-        const blockPrompt =
-          `${phaseLabel}${completed > 0 ? "（続きから再開）" : ""}\n` +
-          `ブロック ${block.blockIndex}/${block.blockTotal}\n` +
-          `日本語: ${block.jp}\n` +
-          "スペースキーで開始";
-        await waitForSpace(blockPrompt);
-        firstPendingPrompted = true;
-      }
-
-      for (let r = doneInBlock; r < block.repetitions.length; r += 1) {
-        const rep = block.repetitions[r];
-        const trialInPhase = completed + 1;
-        showProgress(completed, totalTrials);
-        globalTrialRef.value += 1;
-        const serialNo = globalTrialRef.value;
-        showStimulus(block);
-
-        const audio = audioMap.get(rep.audioPath);
-        if (!audio) {
-          throw new Error(`音声アセットが見つかりません: ${rep.audioPath}`);
-        }
-
-        audio.pause();
-        audio.currentTime = 0;
-
-        let audioOnsetPerf = null;
-        let audioOnsetEpochMs = null;
-        let trialStartEpochMs = null;
-        let rec = null;
-        let recordingStarted = false;
-        let cleanupPlayback = () => {};
-        try {
-          const playbackEnded = new Promise((resolve, reject) => {
-            const onEnded = () => {
-              cleanupPlayback();
-              resolve();
-            };
-            const onError = () => {
-              cleanupPlayback();
-              reject(new Error(`音声再生に失敗しました: ${rep.audioPath}`));
-            };
-            cleanupPlayback = () => {
-              audio.removeEventListener("ended", onEnded);
-              audio.removeEventListener("error", onError);
-            };
-            audio.addEventListener("ended", onEnded);
-            audio.addEventListener("error", onError);
-          });
-
-          await audio.play();
-          audioOnsetPerf = performance.now();
-          audioOnsetEpochMs = Date.now();
-          await playbackEnded;
-
-          await playRecordingStartBeep();
-          trialStartEpochMs = Date.now();
-          await recorder.start();
-          recordingStarted = true;
-          startTrialTimer(TRIAL_WINDOW_MS);
-          await delay(TRIAL_WINDOW_MS);
-          rec = recorder.stop();
-        } finally {
-          if (recordingStarted && !rec) {
-            recorder.stop();
-          }
-          stopTrialTimer();
-          cleanupPlayback();
-        }
-        audio.pause();
-        audio.currentTime = 0;
-        if (audioOnsetPerf === null || audioOnsetEpochMs === null) {
-          throw new Error(`音声再生に失敗しました: ${rep.audioPath}`);
-        }
-        if (!rec || trialStartEpochMs === null) {
-          throw new Error("録音の開始または停止に失敗しました。");
-        }
-
-        const safeWord = sanitizeName(block.word);
-        const recordingFile = `${outputPrefix}/wav/` +
-          `trial${String(serialNo).padStart(4, "0")}_` +
-          `${phaseName}_block${String(block.blockIndex).padStart(3, "0")}` +
-          `_word_${safeWord}` +
-          `_rep${String(rep.repetition).padStart(2, "0")}` +
-          `_talker_${rep.talker.id}.wav`;
-
-        rows.push({
-          participantId,
-          experimentVersion: EXPERIMENT_VERSION,
-          serialNo,
-          phase: phaseName,
-          trialInPhase,
-          globalTrial: serialNo,
-          blockIndex: block.blockIndex,
-          blockTotal: block.blockTotal,
-          list: block.list,
-          condition: block.condition,
-          word: block.word,
-          jp: block.jp,
-          repetition: rep.repetition,
-          talkerId: rep.talker.id,
-          talkerLabel: rep.talker.label,
-          stimulusFile: rep.audioPath,
-          recordingFile,
-          trialWindowMs: TRIAL_WINDOW_MS,
-          recordingDurationMs: rec.durationMs,
-          trialStartEpochMs,
-          audioOnsetEpochMs,
-          audioOnsetFromPhaseMs: audioOnsetPerf - phaseStartPerf,
-          cbIndex: counterbalance.conditionIndex,
-          singleList: counterbalance.singleList,
-          multiList: counterbalance.multiList,
-          listOrder: counterbalance.listOrder.join("->"),
-          singleTalker: counterbalance.singleTalker.id,
-          multiRotationStart: counterbalance.multiRotation[0]?.id || "",
-        });
-
-        if (onTrialPersist) {
-          await onTrialPersist(rows[rows.length - 1], rec.wavBytes);
-        }
-        completed += 1;
-        completedByBlock.set(block.blockIndex, (completedByBlock.get(block.blockIndex) || 0) + 1);
-        showProgress(completed, totalTrials);
-      }
-
-      let nextPendingBlock = null;
-      for (let nb = b + 1; nb < blocks.length; nb += 1) {
-        const maybe = blocks[nb];
-        const maybeDone = completedByBlock.get(maybe.blockIndex) || 0;
-        if (maybeDone < maybe.repetitions.length) {
-          nextPendingBlock = maybe;
-          break;
-        }
-      }
-      if (nextPendingBlock) {
-        await waitForSpace(
-          `この単語は終了です\n` +
-          `次: ${nextPendingBlock.jp}\n` +
-          "スペースキーで次へ"
-        );
-      }
-    }
-
-    return { rows, totalTrials };
+  function getRowsForPass(passIndex) {
+    if (!preparedSession) return [];
+    return preparedSession.rows
+      .filter((row) => row.phase === "main" && row.passIndex === passIndex)
+      .sort((a, b) => a.trialInPass - b.trialInPass);
   }
 
-  async function prepareSession(participantId) {
+  function getNextPendingPass() {
+    if (!preparedSession) return null;
+    return preparedSession.passes.find((pass) => getRowsForPass(pass.passIndex).length < pass.trials.length) || null;
+  }
+
+  function refreshStartButton() {
+    if (!preparedSession) return;
+    if (!preparedSession.practiceCompleted) {
+      startPassBtn.textContent = "練習を開始";
+      startPassBtn.classList.remove("hidden");
+      startPassBtn.disabled = false;
+      return;
+    }
+    const pass = getNextPendingPass();
+    if (!pass) {
+      startPassBtn.classList.add("hidden");
+      startPassBtn.disabled = true;
+      return;
+    }
+    const done = getRowsForPass(pass.passIndex).length;
+    startPassBtn.textContent =
+      done > 0
+        ? `${pass.label} を再開`
+        : `${pass.label} を開始`;
+    startPassBtn.classList.remove("hidden");
+    startPassBtn.disabled = false;
+  }
+
+  async function runPracticeFlow() {
+    if (!preparedSession || isRunning) return;
+    if (!volumeCheckCompleted) {
+      setStatus("先に音量チェックを行ってください。");
+      return;
+    }
+
+    isRunning = true;
+    volumeCheckBtn.classList.add("hidden");
+    startPassBtn.disabled = true;
+
+    try {
+      enterExperimentScreen();
+      setStatus("練習を開始します。");
+      const practiceStats = await runPracticePass(preparedSession.practicePass);
+      preparedSession.practiceCompleted = true;
+      await mergeRecoverySessionMeta(preparedSession.sessionId, {
+        practiceCompleted: true,
+        practiceStats,
+        phase: "practice_completed",
+      });
+
+      exitExperimentScreen();
+      const needsAttention = practiceStats.some((s) => s.levelCode === "too_quiet" || s.levelCode === "clip_risk");
+      setStatus(needsAttention
+        ? "練習完了。録音レベルに注意が出た項目があります。本番前にマイク位置を調整してください。"
+        : "練習完了。録音レベルは概ね良好です。本番へ進めます。"
+      );
+      setLog("練習録音は最終ZIPには保存しません。");
+      showMessage("練習完了\n本番のPassへ進んでください");
+      refreshStartButton();
+    } catch (err) {
+      console.error(err);
+      exitExperimentScreen();
+      setStatus(`練習エラー: ${err.message}`);
+      refreshStartButton();
+      preloadBtn.disabled = false;
+    } finally {
+      isRunning = false;
+    }
+  }
+
+  async function recordOneTake({ pass, trial, takeNo, phaseStartPerf }) {
+    const audio = preparedSession.audioMap.get(trial.audioPath);
+    if (!audio) {
+      throw new Error(`音声アセットが見つかりません: ${trial.audioPath}`);
+    }
+
+    showStimulus(trial, pass, takeNo);
+    audio.pause();
+    audio.currentTime = 0;
+
+    let audioOnsetPerf = null;
+    let audioOnsetEpochMs = null;
+    let trialStartEpochMs = null;
+    let rec = null;
+    let recordingStarted = false;
+    let cleanupPlayback = () => {};
+
+    try {
+      const playbackEnded = new Promise((resolve, reject) => {
+        const onEnded = () => {
+          cleanupPlayback();
+          resolve();
+        };
+        const onError = () => {
+          cleanupPlayback();
+          reject(new Error(`音声再生に失敗しました: ${trial.audioPath}`));
+        };
+        cleanupPlayback = () => {
+          audio.removeEventListener("ended", onEnded);
+          audio.removeEventListener("error", onError);
+        };
+        audio.addEventListener("ended", onEnded);
+        audio.addEventListener("error", onError);
+      });
+
+      await audio.play();
+      audioOnsetPerf = performance.now();
+      audioOnsetEpochMs = Date.now();
+      await playbackEnded;
+
+      await playRecordingStartBeep();
+      trialStartEpochMs = Date.now();
+      await preparedSession.recorder.start();
+      recordingStarted = true;
+      startTrialTimer(TRIAL_WINDOW_MS);
+      await delay(TRIAL_WINDOW_MS);
+      rec = preparedSession.recorder.stop();
+    } finally {
+      if (recordingStarted && !rec) {
+        preparedSession.recorder.stop();
+      }
+      stopTrialTimer();
+      cleanupPlayback();
+      audio.pause();
+      audio.currentTime = 0;
+    }
+
+    if (audioOnsetPerf === null || audioOnsetEpochMs === null) {
+      throw new Error(`音声再生に失敗しました: ${trial.audioPath}`);
+    }
+    if (!rec || trialStartEpochMs === null) {
+      throw new Error("録音の開始または停止に失敗しました。");
+    }
+
+    return {
+      rec,
+      audioOnsetEpochMs,
+      trialStartEpochMs,
+      audioOnsetFromPassMs: audioOnsetPerf - phaseStartPerf,
+    };
+  }
+
+  function buildRecordingFileName({ pass, trial, takeNo, serialNo }) {
+    const baseDir = sanitizeName(preparedSession.participantId);
+    const nativeLanguage = preparedSession.nativeLanguage;
+    const safePass = sanitizeName(pass.id);
+    const safeWord = sanitizeName(trial.word);
+    const outputPrefix = `${baseDir}/pass${pad2(pass.passIndex)}_${safePass}`;
+    return `${outputPrefix}/wav/` +
+      `${baseDir}_${nativeLanguage}_pass${pad2(pass.passIndex)}_${safePass}_` +
+      `word${pad3(trial.trialInPass)}_${safeWord}_` +
+      `take${pad2(takeNo)}_trial${pad4(serialNo)}_talker_${trial.talker.id}.wav`;
+  }
+
+  function buildRow({ pass, trial, takeNo, serialNo, recordingFile, timing }) {
+    return {
+      participantId: preparedSession.participantId,
+      nativeLanguage: preparedSession.nativeLanguage,
+      experimentVersion: EXPERIMENT_VERSION,
+      serialNo,
+      phase: "main",
+      passIndex: pass.passIndex,
+      passId: pass.id,
+      passLabel: pass.label,
+      condition: pass.condition,
+      trialInPass: trial.trialInPass,
+      trialTotalInPass: trial.trialTotalInPass,
+      globalTrial: serialNo,
+      blockIndex: trial.blockIndex,
+      blockTotal: trial.blockTotal,
+      list: trial.list,
+      word: trial.word,
+      jp: trial.jp,
+      takeNo,
+      talkerId: trial.talker.id,
+      talkerLabel: trial.talker.label,
+      stimulusFile: trial.audioPath,
+      recordingFile,
+      trialWindowMs: TRIAL_WINDOW_MS,
+      recordingDurationMs: timing.rec.durationMs,
+      recordingRms: timing.rec.rms,
+      recordingPeak: timing.rec.peak,
+      recordingPeakDbfs: timing.rec.peakDbfs,
+      recordingLevel: timing.rec.levelCode,
+      trialStartEpochMs: timing.trialStartEpochMs,
+      audioOnsetEpochMs: timing.audioOnsetEpochMs,
+      audioOnsetFromPassMs: timing.audioOnsetFromPassMs,
+      cbIndex: preparedSession.counterbalance.conditionIndex,
+      listOrder: preparedSession.counterbalance.listOrder.join("->"),
+      singleTalker: preparedSession.counterbalance.singleTalker.id,
+    };
+  }
+
+  async function recordTrialWithRetake({ pass, trial, phaseStartPerf }) {
+    const serialNo = ((pass.passIndex - 1) * trial.trialTotalInPass) + trial.trialInPass;
+    let takeNo = 0;
+
+    while (true) {
+      takeNo += 1;
+      const timing = await recordOneTake({ pass, trial, takeNo, phaseStartPerf });
+      const recordingFile = buildRecordingFileName({ pass, trial, takeNo, serialNo });
+      const row = buildRow({ pass, trial, takeNo, serialNo, recordingFile, timing });
+      await saveRecoveryTrial(preparedSession.sessionId, row, timing.rec.wavBytes);
+      await mergeRecoverySessionMeta(preparedSession.sessionId, {
+        latestSerialNo: row.serialNo,
+        latestPassIndex: pass.passIndex,
+        latestTrialInPass: trial.trialInPass,
+        phase: "main",
+      });
+
+      const decision = await waitForTrialDecision(pass, trial, takeNo, timing.rec);
+      if (decision === "accept") {
+        return row;
+      }
+    }
+  }
+
+  async function recordPracticeTrialWithRetake({ pass, trial, phaseStartPerf }) {
+    let takeNo = 0;
+
+    while (true) {
+      takeNo += 1;
+      const timing = await recordOneTake({ pass, trial, takeNo, phaseStartPerf });
+      const decision = await waitForTrialDecision(pass, trial, takeNo, timing.rec);
+      if (decision === "accept") {
+        return timing.rec;
+      }
+    }
+  }
+
+  async function runPracticePass(pass) {
+    const totalTrials = pass.trials.length;
+    const label = "Practice";
+    let completed = 0;
+
+    await waitForSpace(
+      `${pass.label}\n\n` +
+      `${pass.instruction}\n\n` +
+      "録音レベルが小さすぎる、または大きすぎる場合は、マイクとの距離や声量を調整して録り直してください。\n" +
+      "スペースキーで練習を開始"
+    );
+
+    const phaseStartPerf = performance.now();
+    const practiceStats = [];
+
+    for (const trial of pass.trials) {
+      showProgress(completed, totalTrials, label);
+      const rec = await recordPracticeTrialWithRetake({ pass, trial, phaseStartPerf });
+      practiceStats.push({
+        word: trial.word,
+        displayText: trial.displayText,
+        rms: rec.rms,
+        peak: rec.peak,
+        levelCode: rec.levelCode,
+      });
+      completed += 1;
+      showProgress(completed, totalTrials, label);
+    }
+
+    return practiceStats;
+  }
+
+  async function runPass(pass) {
+    const existingRows = getRowsForPass(pass.passIndex);
+    const completedByTrial = new Map(existingRows.map((row) => [row.trialInPass, row]));
+    const totalTrials = pass.trials.length;
+    const label = `Pass ${pass.passIndex}`;
+    let completed = existingRows.length;
+
+    await waitForSpace(
+      `${pass.label}${completed > 0 ? "（続きから再開）" : ""}\n\n` +
+      `${pass.instruction}\n\n` +
+      "各単語の録音後に、録り直すか次へ進むかを選べます。\n" +
+      "スペースキーで開始"
+    );
+
+    const phaseStartPerf = performance.now();
+
+    for (const trial of pass.trials) {
+      if (completedByTrial.has(trial.trialInPass)) {
+        showProgress(completed, totalTrials, label);
+        continue;
+      }
+
+      showProgress(completed, totalTrials, label);
+      const row = await recordTrialWithRetake({ pass, trial, phaseStartPerf });
+      completedByTrial.set(trial.trialInPass, row);
+      completed += 1;
+      showProgress(completed, totalTrials, label);
+    }
+
+    return [...completedByTrial.values()].sort((a, b) => a.trialInPass - b.trialInPass);
+  }
+
+  async function buildPassZip(pass) {
+    const baseDir = sanitizeName(preparedSession.participantId);
+    const safePass = sanitizeName(pass.id);
+    const outputPrefix = `${baseDir}/pass${pad2(pass.passIndex)}_${safePass}`;
+    const artifacts = await getRecoveryArtifacts(preparedSession.sessionId, {
+      phase: "main",
+      passIndex: pass.passIndex,
+    });
+    const rows = artifacts.rows.sort((a, b) => a.trialInPass - b.trialInPass);
+    const logTable = buildLogTable(rows);
+    const logBytes = await buildXlsxBytes(logTable, `pass${pad2(pass.passIndex)}_log`);
+    const summary = {
+      participant_id: preparedSession.participantId,
+      native_language: preparedSession.nativeLanguage,
+      experiment_version: EXPERIMENT_VERSION,
+      build_date: EXPERIMENT_BUILD_DATE,
+      exported_at_iso: new Date().toISOString(),
+      pass_index: pass.passIndex,
+      pass_id: pass.id,
+      pass_label: pass.label,
+      condition: pass.condition,
+      instruction: pass.instruction,
+      counterbalance_index: preparedSession.counterbalance.conditionIndex,
+      list_order: preparedSession.counterbalance.listOrderLabel,
+      talker_id: preparedSession.counterbalance.singleTalker.id,
+      trial_count: rows.length,
+    };
+    const files = [
+      ...artifacts.files,
+      {
+        name: `${outputPrefix}/logs/${baseDir}_pass${pad2(pass.passIndex)}_${safePass}_log.xlsx`,
+        bytes: logBytes,
+      },
+      {
+        name: `${outputPrefix}/logs/${baseDir}_pass${pad2(pass.passIndex)}_${safePass}_summary.json`,
+        bytes: TEXT_ENCODER.encode(JSON.stringify(summary, null, 2)),
+      },
+    ];
+    const zipBlob = createZipBlob(files);
+    const zipName = `${baseDir}_${preparedSession.nativeLanguage}_pass${pad2(pass.passIndex)}_${safePass}.zip`;
+    return { zipBlob, zipName, rows };
+  }
+
+  async function refreshRecoveredRows() {
+    if (!preparedSession) return;
+    const snapshot = await loadRecoverySnapshot(preparedSession.sessionId);
+    preparedSession.rows = snapshot.rows;
+  }
+
+  async function prepareSession(participantId, nativeLanguageId) {
     const counterbalance = buildCounterbalance(participantId);
-    const practiceBlocks = buildPracticeBlocks(participantId);
-    const mainBlocks = buildMainBlocks(counterbalance);
-    const audioPaths = collectAudioPaths(practiceBlocks, mainBlocks);
+    const practicePass = buildPracticePass(nativeLanguageId);
+    const passes = buildRecordingPasses(counterbalance, nativeLanguageId);
+    const audioPaths = collectAudioPaths([practicePass, ...passes]);
     const sessionId = getRecoverySessionId(participantId);
+    const plannedTrials = passes.reduce((acc, pass) => acc + pass.trials.length, 0);
 
     let recoverySnapshot = await loadRecoverySnapshot(sessionId);
-    const plannedMainTrials = mainBlocks.reduce((acc, b) => acc + b.repetitions.length, 0);
     const hasIncompatibleDraft =
       recoverySnapshot.meta &&
       (
         recoverySnapshot.meta.participantId !== participantId ||
+        recoverySnapshot.meta.nativeLanguage !== nativeLanguageId ||
         recoverySnapshot.meta.counterbalanceIndex !== counterbalance.conditionIndex ||
         recoverySnapshot.meta.experimentVersion !== EXPERIMENT_VERSION
       );
     const hasCompletedRowsWithoutMeta =
-      (recoverySnapshot.mainRows?.length || 0) >= plannedMainTrials;
-    if (hasIncompatibleDraft || recoverySnapshot.meta?.mainCompleted || hasCompletedRowsWithoutMeta) {
+      !recoverySnapshot.meta && (recoverySnapshot.rows?.length || 0) >= plannedTrials;
+    if (hasIncompatibleDraft || recoverySnapshot.meta?.allPassesCompleted || hasCompletedRowsWithoutMeta) {
       await clearRecoverySession(sessionId);
-      recoverySnapshot = { meta: null, trialRecords: [], rows: [], practiceRows: [], mainRows: [] };
+      recoverySnapshot = { meta: null, trialRecords: [], rows: [] };
     }
 
     setStatus("マイクの許可を確認しています...");
@@ -1241,39 +1633,42 @@
         autoGainControl: false,
       },
     });
+
     let recorder = null;
     try {
       recorder = new WavRecorder(stream);
       setStatus("音声ファイルを読み込んでいます...");
       const audioMap = await preloadAudio(audioPaths);
-      const practiceRows = recoverySnapshot.practiceRows || [];
-      const mainRows = recoverySnapshot.mainRows || [];
       const volumeCheckDone = Boolean(recoverySnapshot.meta?.volumeCheckCompleted);
+      const practiceCompleted = Boolean(recoverySnapshot.meta?.practiceCompleted);
 
       await mergeRecoverySessionMeta(sessionId, {
         participantId,
+        nativeLanguage: nativeLanguageId,
         counterbalanceIndex: counterbalance.conditionIndex,
-        counterbalanceLabel: counterbalance.listAssignmentLabel,
         listOrder: counterbalance.listOrderLabel,
         experimentVersion: EXPERIMENT_VERSION,
         buildDate: EXPERIMENT_BUILD_DATE,
         volumeCheckCompleted: volumeCheckDone,
-        practiceCompleted: practiceRows.length >= practiceBlocks.reduce((acc, b) => acc + b.repetitions.length, 0),
-        mainCompleted: mainRows.length >= mainBlocks.reduce((acc, b) => acc + b.repetitions.length, 0),
+        practiceCompleted,
+        passCount: passes.length,
+        plannedTrials,
+        allPassesCompleted: false,
       });
 
       return {
         sessionId,
         participantId,
+        nativeLanguage: nativeLanguageId,
         counterbalance,
-        practiceBlocks,
-        mainBlocks,
+        practicePass,
+        practiceCompleted,
+        passes,
         audioMap,
         recorder,
-        practiceRows,
-        mainRows,
+        rows: recoverySnapshot.rows || [],
         volumeCheckCompleted: volumeCheckDone,
-        initialRecoveredTrials: practiceRows.length + mainRows.length,
+        initialRecoveredTrials: recoverySnapshot.rows?.length || 0,
       };
     } catch (err) {
       if (recorder) {
@@ -1290,10 +1685,7 @@
       setStatus("先に準備を実行してください。");
       return;
     }
-    const samplePath = preparedSession.practiceBlocks[0]?.repetitions[0]?.audioPath;
-    if (!samplePath) {
-      throw new Error("音量チェック用の刺激が見つかりません。");
-    }
+    const samplePath = PRACTICE_ITEMS[0].audioPath;
     const audio = preparedSession.audioMap.get(samplePath);
     if (!audio) {
       throw new Error(`音量チェック音声が見つかりません: ${samplePath}`);
@@ -1341,209 +1733,79 @@
     });
     volumeCheckBtn.textContent = "音量チェックを再生（再確認）";
     volumeCheckBtn.disabled = false;
-    startPracticeBtn.classList.remove("hidden");
-    startPracticeBtn.disabled = false;
-    setStatus("音量チェック完了。練習を開始できます。");
-    showMessage("音量OKならスペースキーまたはボタンで練習開始");
+    refreshStartButton();
+    setStatus("音量チェック完了。録音を開始できます。");
+    showMessage("音量OKなら録音を開始してください");
   }
 
-  async function runPracticeFlow() {
+  async function runPassFlow() {
     if (!preparedSession || isRunning) return;
     if (!volumeCheckCompleted) {
       setStatus("先に音量チェックを行ってください。");
       return;
     }
+    if (!preparedSession.practiceCompleted) {
+      await runPracticeFlow();
+      return;
+    }
+
+    const pass = getNextPendingPass();
+    if (!pass) {
+      setStatus("すべての録音は完了しています。");
+      return;
+    }
+
     isRunning = true;
     volumeCheckBtn.classList.add("hidden");
-    startPracticeBtn.disabled = true;
-    confirmPracticeBtn.classList.add("hidden");
-    downloadFinalBtn.classList.add("hidden");
-
-    const globalTrialRef = {
-      value: (preparedSession.practiceRows?.length || 0) + (preparedSession.mainRows?.length || 0),
-    };
-    const outputPrefix = `${sanitizeName(preparedSession.participantId)}/practice`;
+    startPassBtn.disabled = true;
 
     try {
       enterExperimentScreen();
-      const practiceTotal = preparedSession.practiceBlocks.reduce((acc, b) => acc + b.repetitions.length, 0);
-      if ((preparedSession.practiceRows?.length || 0) > 0) {
-        setStatus(`練習を再開します。完了済み: ${preparedSession.practiceRows.length}/${practiceTotal}`);
-      } else {
-        setStatus("練習を開始します。");
-      }
-      const practiceResult = await runPhase({
-        phaseName: "practice",
-        phaseLabel: "Practice",
-        blocks: preparedSession.practiceBlocks,
-        participantId: preparedSession.participantId,
-        counterbalance: preparedSession.counterbalance,
-        audioMap: preparedSession.audioMap,
-        recorder: preparedSession.recorder,
-        globalTrialRef,
-        outputPrefix,
-        existingRows: preparedSession.practiceRows || [],
-        onTrialPersist: async (row, wavBytes) => {
-          await saveRecoveryTrial(preparedSession.sessionId, row, wavBytes);
-          await mergeRecoverySessionMeta(preparedSession.sessionId, {
-            latestSerialNo: row.serialNo,
-            phase: "practice",
-          });
-        },
-      });
+      setStatus(`${pass.label} を開始します。`);
+      await runPass(pass);
+      await refreshRecoveredRows();
 
-      preparedSession.practiceRows = practiceResult.rows;
+      const { zipBlob, zipName, rows } = await buildPassZip(pass);
+      lastZipBlob = zipBlob;
+      lastZipName = zipName;
+      triggerDownload(zipBlob, zipName);
 
-      const practiceArtifacts = await getRecoveryArtifacts(preparedSession.sessionId, "practice");
-      const practiceTable = buildLogTable(practiceArtifacts.rows);
-      const practiceXlsxBytes = await buildXlsxBytes(practiceTable, "practice_log");
-      const practiceZipFiles = [
-        ...practiceArtifacts.files,
-        {
-          name: `${outputPrefix}/logs/practice_log_${sanitizeName(preparedSession.participantId)}.xlsx`,
-          bytes: practiceXlsxBytes,
-        },
-      ];
-
-      const practiceZip = createZipBlob(practiceZipFiles);
-      triggerDownload(
-        practiceZip,
-        `practice_check_${sanitizeName(preparedSession.participantId)}.zip`
-      );
       await mergeRecoverySessionMeta(preparedSession.sessionId, {
-        practiceCompleted: true,
-        phase: "practice_completed",
+        [`pass${pass.passIndex}Completed`]: true,
+        latestCompletedPassIndex: pass.passIndex,
+        phase: `pass${pass.passIndex}_completed`,
       });
 
       exitExperimentScreen();
-      setStatus("練習ZIP（WAV+XLSX）を自動ダウンロードしました。録音を確認してから本番へ進んでください。");
-      setLog("練習完了: ZIPを展開してWAVを確認後、「確認できたので本番へ進む」を押してください。");
-      showMessage("練習終了\n録音確認後に本番へ進みます");
-      startPracticeBtn.classList.add("hidden");
-      confirmPracticeBtn.classList.remove("hidden");
-      confirmPracticeBtn.disabled = false;
+      const nextPass = getNextPendingPass();
+      redownloadZipBtn.classList.remove("hidden");
+      redownloadZipBtn.disabled = false;
+
+      if (nextPass) {
+        setStatus(`${pass.label} 完了。${rows.length}個のWAVをZIPで自動ダウンロードしました。次のリピートへ進めます。`);
+        setLog(`保存: ${zipName}`);
+        showMessage(`${pass.label} 完了\nZIPをダウンロードしました\n次のリピートへ進んでください`);
+        refreshStartButton();
+      } else {
+        setStatus(`${pass.label} 完了。最後のZIPを自動ダウンロードしました。`);
+        setLog(`保存: ${zipName}`);
+        showMessage("録音はすべて終了です\nご協力ありがとうございました");
+        startPassBtn.classList.add("hidden");
+        startPassBtn.disabled = true;
+        await mergeRecoverySessionMeta(preparedSession.sessionId, {
+          allPassesCompleted: true,
+          phase: "completed",
+        });
+        await preparedSession.recorder.dispose();
+        await clearRecoverySession(preparedSession.sessionId);
+        preparedSession = null;
+        preloadBtn.disabled = false;
+      }
     } catch (err) {
       console.error(err);
       exitExperimentScreen();
       setStatus(`エラー: ${err.message}`);
-      startPracticeBtn.disabled = false;
-    } finally {
-      isRunning = false;
-    }
-  }
-
-  async function runMainFlow() {
-    if (!preparedSession || isRunning) return;
-    isRunning = true;
-    confirmPracticeBtn.disabled = true;
-
-    const globalTrialRef = {
-      value: (preparedSession.practiceRows?.length || 0) + (preparedSession.mainRows?.length || 0),
-    };
-    const outputPrefix = `${sanitizeName(preparedSession.participantId)}/main`;
-
-    try {
-      enterExperimentScreen();
-      const mainTotal = preparedSession.mainBlocks.reduce((acc, b) => acc + b.repetitions.length, 0);
-      if ((preparedSession.mainRows?.length || 0) > 0) {
-        setStatus(`本番を再開します。完了済み: ${preparedSession.mainRows.length}/${mainTotal}`);
-      } else {
-        setStatus("本番を開始します。");
-      }
-      const mainResult = await runPhase({
-        phaseName: "main",
-        phaseLabel: "Main",
-        blocks: preparedSession.mainBlocks,
-        participantId: preparedSession.participantId,
-        counterbalance: preparedSession.counterbalance,
-        audioMap: preparedSession.audioMap,
-        recorder: preparedSession.recorder,
-        globalTrialRef,
-        outputPrefix,
-        existingRows: preparedSession.mainRows || [],
-        onTrialPersist: async (row, wavBytes) => {
-          await saveRecoveryTrial(preparedSession.sessionId, row, wavBytes);
-          await mergeRecoverySessionMeta(preparedSession.sessionId, {
-            latestSerialNo: row.serialNo,
-            phase: "main",
-          });
-        },
-      });
-
-      preparedSession.mainRows = mainResult.rows;
-      const practiceArtifacts = await getRecoveryArtifacts(preparedSession.sessionId, "practice");
-      const mainArtifacts = await getRecoveryArtifacts(preparedSession.sessionId, "main");
-      const practiceTable = buildLogTable(practiceArtifacts.rows);
-      const mainTable = buildLogTable(mainArtifacts.rows);
-      const practiceXlsxBytes = await buildXlsxBytes(practiceTable, "practice_log");
-      const mainXlsxBytes = await buildXlsxBytes(mainTable, "main_log");
-      const summary = {
-        participant_id: preparedSession.participantId,
-        experiment_version: EXPERIMENT_VERSION,
-        build_date: EXPERIMENT_BUILD_DATE,
-        finalized_at_iso: new Date().toISOString(),
-        counterbalance_index: preparedSession.counterbalance.conditionIndex,
-        list_assignment: preparedSession.counterbalance.listAssignmentLabel,
-        list_order: preparedSession.counterbalance.listOrderLabel,
-        single_list: preparedSession.counterbalance.singleList,
-        multi_list: preparedSession.counterbalance.multiList,
-        single_talker: preparedSession.counterbalance.singleTalker.id,
-        multi_rotation: preparedSession.counterbalance.multiRotation.map((t) => t.id),
-        practice_trials: practiceArtifacts.rows.length,
-        main_trials: mainArtifacts.rows.length,
-        recovered_session: preparedSession.initialRecoveredTrials > 0,
-        recovered_trials_at_start: preparedSession.initialRecoveredTrials,
-      };
-
-      const baseDir = sanitizeName(preparedSession.participantId);
-      const zipFiles = [
-        ...practiceArtifacts.files,
-        ...mainArtifacts.files,
-        {
-          name: `${baseDir}/logs/practice_log_${baseDir}.xlsx`,
-          bytes: practiceXlsxBytes,
-        },
-        {
-          name: `${baseDir}/logs/main_log_${baseDir}.xlsx`,
-          bytes: mainXlsxBytes,
-        },
-        {
-          name: `${baseDir}/logs/summary_${baseDir}.json`,
-          bytes: TEXT_ENCODER.encode(JSON.stringify(summary, null, 2)),
-        },
-      ];
-
-      finalZipBlob = createZipBlob(zipFiles);
-      const finalZipName = `learning_phase_${baseDir}_all_data.zip`;
-      triggerDownload(finalZipBlob, finalZipName);
-
-      exitExperimentScreen();
-      setStatus("本番完了。全WAV+XLSX+summary のZIPを自動ダウンロードしました。");
-      setLog("");
-      showMessage("実験終了\nご協力ありがとうございました");
-      await mergeRecoverySessionMeta(preparedSession.sessionId, {
-        mainCompleted: true,
-        phase: "completed",
-      });
-
-      downloadFinalBtn.classList.remove("hidden");
-      downloadFinalBtn.onclick = () => {
-        if (!finalZipBlob) return;
-        triggerDownload(finalZipBlob, finalZipName);
-      };
-
-      await preparedSession.recorder.dispose();
-      await clearRecoverySession(preparedSession.sessionId);
-      preparedSession = null;
-      preloadBtn.disabled = false;
-      volumeCheckBtn.classList.add("hidden");
-      startPracticeBtn.classList.add("hidden");
-      confirmPracticeBtn.classList.add("hidden");
-    } catch (err) {
-      console.error(err);
-      exitExperimentScreen();
-      setStatus(`エラー: ${err.message}`);
-      confirmPracticeBtn.disabled = false;
+      refreshStartButton();
       preloadBtn.disabled = false;
     } finally {
       isRunning = false;
@@ -1552,8 +1814,13 @@
 
   preloadBtn.addEventListener("click", async () => {
     const participantId = participantInput.value.trim();
+    const nativeLanguageId = nativeLanguageSelect.value;
     if (!participantId) {
       setStatus("参加者IDを入力してください。");
+      return;
+    }
+    if (!NATIVE_LANGUAGES[nativeLanguageId]) {
+      setStatus("母語を選択してください。");
       return;
     }
     if (!isChrome()) {
@@ -1568,45 +1835,38 @@
     preloadBtn.disabled = true;
     stopMicMeter();
     volumeCheckCompleted = false;
+    lastZipBlob = null;
+    lastZipName = "";
     volumeCheckBtn.classList.add("hidden");
     volumeCheckBtn.textContent = "音量チェックを再生";
     volumeCheckBtn.disabled = true;
-    startPracticeBtn.classList.add("hidden");
-    startPracticeBtn.disabled = true;
-    confirmPracticeBtn.classList.add("hidden");
-    confirmPracticeBtn.disabled = true;
-    downloadFinalBtn.classList.add("hidden");
+    startPassBtn.classList.add("hidden");
+    startPassBtn.disabled = true;
+    redownloadZipBtn.classList.add("hidden");
+    redownloadZipBtn.disabled = true;
     setLog("");
 
     try {
-      preparedSession = await prepareSession(participantId);
-      const practiceTotal = preparedSession.practiceBlocks.reduce((acc, b) => acc + b.repetitions.length, 0);
-      const mainTotal = preparedSession.mainBlocks.reduce((acc, b) => acc + b.repetitions.length, 0);
-      const practiceDone = preparedSession.practiceRows.length;
-      const mainDone = preparedSession.mainRows.length;
+      preparedSession = await prepareSession(participantId, nativeLanguageId);
+      const plannedTrials = preparedSession.passes.reduce((acc, pass) => acc + pass.trials.length, 0);
+      const completedTrials = preparedSession.rows.length;
       volumeCheckCompleted = Boolean(preparedSession.volumeCheckCompleted);
 
       setStatus("準備完了。");
-      setLog("");
-      if (practiceDone >= practiceTotal && mainDone < mainTotal) {
-        volumeCheckCompleted = true;
-        showMessage("前回の続きがあります\n本番を再開できます");
-        setStatus(`復旧データを検出: 練習 ${practiceDone}/${practiceTotal}, 本番 ${mainDone}/${mainTotal}`);
-        confirmPracticeBtn.classList.remove("hidden");
-        confirmPracticeBtn.disabled = false;
-        return;
-      }
+      setLog(
+        `母語: ${NATIVE_LANGUAGES[nativeLanguageId].label} / ` +
+        `予定: ${preparedSession.passes.length} passes, ${plannedTrials} recordings`
+      );
 
       if (!volumeCheckCompleted) {
-        setStatus("準備完了。まず音量チェックを行ってください。");
         showMessage("音量チェックを再生してください");
+        setStatus("準備完了。まず音量チェックを行ってください。");
         volumeCheckBtn.classList.remove("hidden");
         volumeCheckBtn.disabled = false;
       } else {
-        showMessage("前回の続きがあります\n練習を再開できます");
-        setStatus(`復旧データを検出: 練習 ${practiceDone}/${practiceTotal}, 本番 ${mainDone}/${mainTotal}`);
-        startPracticeBtn.classList.remove("hidden");
-        startPracticeBtn.disabled = false;
+        showMessage("前回の続きがあります\n録音を再開できます");
+        setStatus(`復旧データを検出: ${completedTrials}/${plannedTrials}`);
+        refreshStartButton();
       }
     } catch (err) {
       console.error(err);
@@ -1630,14 +1890,23 @@
     }
   });
 
-  startPracticeBtn.addEventListener("click", runPracticeFlow);
-  confirmPracticeBtn.addEventListener("click", runMainFlow);
+  startPassBtn.addEventListener("click", runPassFlow);
+
+  redownloadZipBtn.addEventListener("click", () => {
+    if (!lastZipBlob || !lastZipName) {
+      setStatus("再ダウンロード可能なZIPがありません。");
+      return;
+    }
+    triggerDownload(lastZipBlob, lastZipName);
+    setStatus(`再ダウンロードしました: ${lastZipName}`);
+  });
 
   document.addEventListener("keydown", (ev) => {
+    if (isRunning) return;
     if (ev.code !== "Space" && ev.key !== " ") return;
-    if (startPracticeBtn.classList.contains("hidden")) return;
-    if (startPracticeBtn.disabled) return;
+    if (startPassBtn.classList.contains("hidden")) return;
+    if (startPassBtn.disabled) return;
     ev.preventDefault();
-    runPracticeFlow();
+    runPassFlow();
   });
 })();

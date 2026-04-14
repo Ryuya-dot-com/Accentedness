@@ -35,7 +35,8 @@
       text-align: left;
     }
     label { display: block; margin: 8px 0; }
-    input {
+    input,
+    select {
       padding: 6px 10px;
       font-size: 16px;
       border-radius: 4px;
@@ -94,6 +95,19 @@
     #trial-hint {
       font-size: 18px;
       color: #d0d0d0;
+    }
+    #trial-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+    #trial-actions.hidden {
+      display: none;
+    }
+    #retake-recording-btn {
+      background: #555;
     }
     #trial-timer {
       width: min(76%, 560px);
@@ -188,7 +202,7 @@
       font-size: 12px;
       color: #999;
     }
-    #download-final-btn {
+    #redownload-zip-btn {
       margin-top: 16px;
       background: #27ae60;
     }
@@ -200,24 +214,32 @@
       <label>参加者ID (例: 001)
         <input id="participant-id" type="text" placeholder="001" />
       </label>
+      <label>母語
+        <select id="native-language">
+          <option value="english">English</option>
+          <option value="japanese" selected>Japanese</option>
+          <option value="chinese">Chinese</option>
+        </select>
+      </label>
       <div style="color:#ccc; font-size:14px; line-height:1.6;">
         <strong>実験概要：</strong>
         <ul style="margin:8px 0 0 18px; padding:0;">
           <li>Google Chrome で実施してください（マイク録音とZIP出力のため）。</li>
-          <li>練習開始前に必ず音量チェックを行います。</li>
-          <li>本番は50語、各語6回（1語=1ブロック）。</li>
-          <li>Single条件とMultiple条件の割り当て・順序は参加者IDでカウンターバランスされます。</li>
-          <li>各反復は「刺激音声の再生後にビープ音が鳴り、ビープ音直後から4秒録音」で自動終了します。</li>
-          <li>ブロック間の進行はスペースキーです。</li>
-          <li>画面には日本語訳を提示します。発話はマイクで録音されます。</li>
+          <li>本番開始前に、音量チェックと練習録音を行います。</li>
+          <li>本番は50語です。Japanese / Chinese 母語話者は3回、English 母語話者は2回リピートします。</li>
+          <li>Pass 1は自然な英語、Pass 2は母語の訛りを意識した英語、Pass 3はその中間です。</li>
+          <li>English 母語話者のPass 2は、自然な英語を保ったまま、少しゆっくり・明瞭に発話します。</li>
+          <li>練習では coffee / pizza / sofa / chocolate を使い、録音レベルと録り直し操作を確認します。</li>
+          <li>各録音は「刺激音声の再生後にビープ音が鳴り、ビープ音直後から4秒録音」で自動終了します。</li>
+          <li>録音後に「もう一度録音する」または「次へ」を選べます。</li>
+          <li>各Passの50語が終わるたびに、そのPassのWAVをZIPで自動ダウンロードします。</li>
         </ul>
         <div class="warn">ブラウザがChrome以外の場合は開始できません。</div>
       </div>
       <div class="btn-row">
         <button id="preload-btn">準備（Chrome確認・マイク許可・音声読み込み）</button>
         <button id="volume-check-btn" class="hidden">音量チェックを再生</button>
-        <button id="start-practice-btn" class="hidden">練習開始（スペースキー）</button>
-        <button id="confirm-practice-btn" class="hidden">確認できたので本番へ進む</button>
+        <button id="start-pass-btn" class="hidden">録音開始（スペースキー）</button>
       </div>
       <div id="mic-check" class="hidden">
         <div id="mic-check-label">マイク入力レベル</div>
@@ -236,10 +258,16 @@
         <div id="trial-hint">ビープ音のあとに聞こえた英単語を発話してください</div>
         <div id="trial-timer"><div id="trial-timer-fill"></div></div>
       </div>
-      <div id="message"></div>
+      <div>
+        <div id="message"></div>
+        <div id="trial-actions" class="hidden">
+          <button id="accept-recording-btn">次へ</button>
+          <button id="retake-recording-btn">もう一度録音する</button>
+        </div>
+      </div>
     </div>
     <div id="log"></div>
-    <button id="download-final-btn" class="hidden">本番ZIPを再ダウンロード</button>
+    <button id="redownload-zip-btn" class="hidden">最後のZIPを再ダウンロード</button>
   </div>
   <script src="script.js"></script>
 </body>
