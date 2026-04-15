@@ -3,18 +3,607 @@
   const RECORDING_BEEP_MS = 180;
   const RECORDING_BEEP_HZ = 1000;
   const RECORDING_BEEP_GAIN = 0.06;
-  const EXPERIMENT_VERSION = "learning_phase_v5.0.0";
-  const EXPERIMENT_BUILD_DATE = "2026-04-14";
+  const EXPERIMENT_VERSION = "learning_phase_v5.0.1";
+  const EXPERIMENT_BUILD_DATE = "2026-04-15";
   const RECOVERY_DB_NAME = "accentedness_learning_recovery";
-  const RECOVERY_DB_VERSION = 1;
+  const RECOVERY_DB_VERSION = 2;
   const RECOVERY_SESSIONS_STORE = "sessions";
   const RECOVERY_TRIALS_STORE = "trials";
+  const RECOVERY_ZIPS_STORE = "zips";
   const RECOVERY_BY_SESSION_INDEX = "by_session";
 
   const NATIVE_LANGUAGES = {
-    english: { id: "english", label: "English", labelJa: "英語" },
-    japanese: { id: "japanese", label: "Japanese", labelJa: "日本語" },
-    chinese: { id: "chinese", label: "Chinese", labelJa: "中国語" },
+    english: {
+      id: "english",
+      label: "English",
+      labelJa: "英語",
+      labelZh: "英语",
+    },
+    japanese: {
+      id: "japanese",
+      label: "Japanese",
+      labelJa: "日本語",
+      labelZh: "日语",
+    },
+    chinese: {
+      id: "chinese",
+      label: "Chinese",
+      labelJa: "中国語",
+      labelZh: "中文",
+    },
+  };
+
+  const UI_COPY = {
+    bilingual: {
+      langAttr: "ja",
+      title: "Accentedness Learning Phase",
+      participantLabel: "参加者ID / Participant ID (例 / e.g., 001)",
+      nativeLanguageLabel: "母語 / Native language",
+      languageOptions: {
+        english: "English / 英語",
+        japanese: "Japanese / 日本語",
+        chinese: "Chinese / 中国語",
+      },
+      summaryTitle: "実験概要 / Experiment overview:",
+      summaryItems: [
+        "Google Chrome で実施してください。 / Please use Google Chrome.",
+        "本番開始前に、音量チェックと練習録音を行います。 / Before the main recording, you will complete a volume check and practice recording.",
+        "本番は50語です。Japanese / Chinese 母語話者は3回、English 母語話者は2回リピートします。 / The main task has 50 words. Japanese/Chinese speakers repeat them 3 times; English speakers repeat them 2 times.",
+        "録音後に「もう一度録音する」または「次へ」を選べます。 / After each recording, choose retake or next.",
+        "各Passの50語が終わるたびに、そのPassのWAVをZIPで自動ダウンロードします。 / After each pass, the WAV files are downloaded as a ZIP.",
+      ],
+      chromeWarning:
+        "ブラウザがChrome以外の場合は開始できません。 / This task can only start in Chrome.",
+      preloadButton: "準備 / Prepare (Chrome, mic, audio)",
+      volumeCheckButton: "音量チェックを再生 / Play volume check",
+      volumeCheckAgainButton:
+        "音量チェックを再生（再確認） / Play volume check again",
+      startRecordingButton: "録音開始 / Start recording (Space)",
+      startPracticeButton: "練習を開始 / Start practice",
+      micCheckLabel: "マイク入力レベル / Microphone input level",
+      micCheckNote:
+        "声を出してメーターが動くことを確認してください / Speak and make sure the meter moves.",
+      trialHintBase:
+        "ビープ音のあとに聞こえた英単語を発話してください / After the beep, say the English word you heard.",
+      acceptButton: "次へ / Next",
+      retakeButton: "もう一度録音する / Retake",
+      recordingDecisionLabel:
+        "録音を使うか録り直すかを選ぶ / Choose whether to use or retake the recording",
+      redownloadButton: "最後のZIPを再ダウンロード / Re-download last ZIP",
+    },
+    ja: {
+      langAttr: "ja",
+      title: "訛りの学習フェーズ",
+      participantLabel: "参加者ID (例: 001)",
+      nativeLanguageLabel: "母語",
+      languageOptions: {
+        english: "英語",
+        japanese: "日本語",
+        chinese: "中国語",
+      },
+      summaryTitle: "実験概要:",
+      summaryItems: [
+        "グーグル Chrome で実施してください（マイク録音と圧縮ファイル出力のため）。",
+        "本番開始前に、音量チェックと練習録音を行います。",
+        "本番は50語です。日本語・中国語母語話者は3回、英語母語話者は2回リピートします。",
+        "1回目は自然な英語、2回目は条件に応じた英語、3回目は自然な英語と母語訛りの中間です。",
+        "英語母語話者の2回目は、自然な英語を保ったまま、少しゆっくり・明瞭に発話します。",
+        "練習では、コーヒー、ピザ、ソファ、チョコレートを使い、録音レベルと録り直し操作を確認します。",
+        "各録音は「刺激音声の再生後にビープ音が鳴り、ビープ音直後から4秒録音」で自動終了します。",
+        "録音後に「もう一度録音する」または「次へ」を選べます。",
+        "各回の50語が終わるたびに、その回の音声ファイルを圧縮ファイルとして自動ダウンロードします。",
+      ],
+      chromeWarning: "ブラウザがChrome以外の場合は開始できません。",
+      preloadButton: "準備（Chrome確認・マイク許可・音声読み込み）",
+      volumeCheckButton: "音量チェックを再生",
+      volumeCheckAgainButton: "音量チェックを再生（再確認）",
+      startRecordingButton: "録音開始（スペースキー）",
+      startPracticeButton: "練習を開始",
+      micCheckLabel: "マイク入力レベル",
+      micCheckNote: "声を出してメーターが動くことを確認してください",
+      trialHintBase: "ビープ音のあとに聞こえた英単語を発話してください",
+      acceptButton: "次へ",
+      retakeButton: "もう一度録音する",
+      recordingDecisionLabel: "録音を使うか録り直すかを選ぶ",
+      redownloadButton: "最後の圧縮ファイルを再ダウンロード",
+      passes: {
+        naturalLabel: "1回目: 自然な英語",
+        naturalProgressLabel: "1回目",
+        naturalShort: "自然な英語",
+        naturalInstruction:
+          "1回目は、あなたが普段いちばん自然だと思う英語でリピートしてください。訛りを意識して強めたり弱めたりせず、聞こえた英単語をそのまま発話してください。",
+        clearLabel: "2回目: ゆっくり・明瞭な英語",
+        clearProgressLabel: "2回目",
+        clearShort: "ゆっくり・明瞭な英語",
+        clearInstruction:
+          "2回目は、自然な英語を保ったまま、少しゆっくり・はっきり発話してください。日本語や中国語の訛りをまねる必要はありません。",
+        accentedLabel: (nativeLanguage) =>
+          `2回目: ${nativeLanguage.labelJa}の訛りを強めた英語`,
+        accentedProgressLabel: "2回目",
+        accentedShort: (nativeLanguage) =>
+          `${nativeLanguage.labelJa}の訛りを強めた英語`,
+        accentedInstruction: (nativeLanguage) =>
+          `2回目は、自分の母語（${nativeLanguage.labelJa}）の特徴が出るように英語でリピートしてください。単語は英語のまま、無理に別人をまねず、あなた自身の${nativeLanguage.labelJa}らしい訛りを意識してください。`,
+        intermediateLabel: "3回目: 自然な英語と母語訛りの中間",
+        intermediateProgressLabel: "3回目",
+        intermediateShort: "自然な英語と母語訛りの中間",
+        intermediateInstruction:
+          "3回目は、1回目の自然な英語と2回目の母語訛りの中間くらいでリピートしてください。訛りを完全には消さず、強すぎもしない発話を目指してください。",
+        practiceLabel: "練習: 音量と録り直し確認",
+        practiceProgressLabel: "練習",
+        practiceShort: "練習",
+        practiceInstruction: (nativeLanguage) =>
+          `練習では、${nativeLanguage.labelJa}で見慣れた借用語を使って、音量と録り直し操作を確認します。` +
+          "ここでの録音は最終圧縮ファイルには保存されません。声の大きさとマイクまでの距離をここで調整してください。",
+      },
+      messages: {
+        beforeUnload: "このページを離れると実験が中断されます。",
+        trialHint: (shortInstruction, takeNo) =>
+          `${shortInstruction} / 録音 ${takeNo}. ビープ音のあとに聞こえた英単語を発話してください。`,
+        recordingLevelPrefix: "録音レベル",
+        recordingPeakLabel: "最大",
+        recordingLevels: {
+          clipRisk: {
+            label: "音量が大きすぎる可能性があります",
+            advice: "マイクから少し離れるか、少し小さめに発話してください。",
+          },
+          tooQuiet: {
+            label: "音量が小さめです",
+            advice: "マイクに少し近づくか、少し大きめに発話してください。",
+          },
+          loud: {
+            label: "音量はやや大きめですが使用可能です",
+            advice: "音割れが気になる場合は少しだけマイクから離れてください。",
+          },
+          good: {
+            label: "録音レベルは良好です",
+            advice: "この距離と声量を保ってください。",
+          },
+        },
+        trialDecision: ({ passLabel, trialLabel, takeNo, levelText }) =>
+          `録音が終了しました\n${passLabel}\n${trialLabel}\n` +
+          `録音 ${takeNo} を使う場合は「次へ」、録り直す場合は「もう一度録音する」を押してください。` +
+          levelText,
+        preloadingAudio: (current, total) =>
+          `音声プリロード中 ${current}/${total}`,
+        audioLoadFailed: (path) => `音声が読み込めません: ${path}`,
+        idbUnsupported:
+          "このブラウザは録音データの一時保存に対応していません。",
+        audioContextUnavailable: "このブラウザでは音声機能が利用できません。",
+        startPracticeButton: "練習を開始",
+        resumePassButton: (label) => `${label} を再開`,
+        startPassButton: (label) => `${label} を開始`,
+        volumeFirst: "先に音量チェックを行ってください。",
+        practiceStartStatus: "練習を開始します。",
+        practiceDoneNeedsAttention:
+          "練習完了。録音レベルに注意が出た項目があります。本番前にマイク位置を調整してください。",
+        practiceDoneOk: "練習完了。録音レベルは概ね良好です。本番へ進めます。",
+        practiceLog: "練習録音は最終圧縮ファイルには保存しません。",
+        practiceDoneMessage: "練習完了\n本番の録音へ進んでください",
+        practiceError: (message) => `練習エラー: ${message}`,
+        audioAssetMissing: (path) => `音声アセットが見つかりません: ${path}`,
+        audioPlaybackFailed: (path) => `音声再生に失敗しました: ${path}`,
+        recordingFailed: "録音の開始または停止に失敗しました。",
+        practiceIntro: (pass) =>
+          `${pass.label}\n\n` +
+          `${pass.instruction}\n\n` +
+          "録音レベルが小さすぎる、または大きすぎる場合は、マイクとの距離や声量を調整して録り直してください。\n" +
+          "スペースキーで練習を開始",
+        passIntro: (pass, completed) =>
+          `${pass.label}${completed > 0 ? "（続きから再開）" : ""}\n\n` +
+          `${pass.instruction}\n\n` +
+          "各単語の録音後に、録り直すか次へ進むかを選べます。\n" +
+          "スペースキーで開始",
+        checkingMic: "マイクの許可を確認しています...",
+        loadingAudio: "音声ファイルを読み込んでいます...",
+        prepareFirst: "先に準備を実行してください。",
+        volumeAudioMissing: (path) =>
+          `音量チェック音声が見つかりません: ${path}`,
+        volumeCheckMessage: "音量チェック中です",
+        volumeCheckStatus: "音量チェック音声を再生しています...",
+        volumePlaybackFailed: "音量チェック音声の再生に失敗しました。",
+        volumeDoneStatus: "音量チェック完了。録音を開始できます。",
+        volumeDoneMessage: "音量OKなら録音を開始してください",
+        allDoneStatus: "すべての録音は完了しています。",
+        passStartStatus: (label) => `${label} を開始します。`,
+        passDoneNextStatus: (label, count) =>
+          `${label} 完了。${count}個の音声ファイルを圧縮ファイルとして自動ダウンロードしました。次のリピートへ進めます。`,
+        passDoneNextMessage: (label) =>
+          `${label} 完了\n圧縮ファイルをダウンロードしました\n次のリピートへ進んでください`,
+        passDoneFinalStatus: (label) =>
+          `${label} 完了。最後の圧縮ファイルを自動ダウンロードしました。`,
+        allDoneMessage: "録音はすべて終了です\nご協力ありがとうございました",
+        saved: (name) => `保存: ${name}`,
+        genericError: (message) => `エラー: ${message}`,
+        genericErrorGuidance:
+          "もう一度試してください。繰り返し失敗する場合は実験担当者に知らせてください。",
+        micPermissionDenied:
+          "マイクの使用が許可されていません。Chrome のアドレスバー左側の権限設定でマイクを許可し、もう一度「準備」を押してください。",
+        micNotFound:
+          "使用できるマイクが見つかりません。マイクの接続を確認してから、もう一度「準備」を押してください。",
+        micInUse:
+          "マイクを開始できません。別のアプリがマイクを使用していないか確認してから、もう一度「準備」を押してください。",
+        micSecurity:
+          "このページではマイクを使用できません。Chrome で安全なページとして開き直してください。",
+        micUnknown:
+          "マイクを開始できません。接続とChromeのマイク許可を確認してから、もう一度「準備」を押してください。",
+        missingParticipant: "参加者IDを入力してください。",
+        selectLanguage: "母語を選択してください。",
+        chromeOnly: "Chrome で実施してください。Chrome以外では開始できません。",
+        micUnsupported: "この環境ではマイク録音に対応していません。",
+        prepared: "準備完了。",
+        planLog: ({ nativeLanguage, passCount, plannedTrials }) =>
+          `母語: ${nativeLanguage} / 予定: ${passCount}回, ${plannedTrials}録音`,
+        playVolumeCheckMessage: "音量チェックを再生してください",
+        preparedDoVolume: "準備完了。まず音量チェックを行ってください。",
+        recoveryMessage: "前回の続きがあります\n録音を再開できます",
+        recoveryStatus: (completed, planned) =>
+          `復旧データを検出: ${completed}/${planned}`,
+        prepareError: (message) => `準備エラー: ${message}`,
+        volumeError: (message) => `音量チェックエラー: ${message}`,
+        retryButton: "この単語をもう一度試す",
+        trialRetryPrompt: (message) =>
+          `この単語の録音中に問題が起きました\n${message}\n\n準備ができたら、この単語をもう一度試してください。`,
+        redownloadUnavailable: "再ダウンロード可能な圧縮ファイルがありません。",
+        redownloaded: (name) => `再ダウンロードしました: ${name}`,
+      },
+    },
+    en: {
+      langAttr: "en",
+      title: "Accentedness Learning Phase",
+      participantLabel: "Participant ID (e.g., 001)",
+      nativeLanguageLabel: "Native language",
+      languageOptions: {
+        english: "English",
+        japanese: "Japanese / 日本語",
+        chinese: "Chinese / 中文",
+      },
+      summaryTitle: "Experiment overview:",
+      summaryItems: [
+        "Please use Google Chrome because this task records audio and downloads ZIP files.",
+        "Before the main recording, you will complete a volume check and practice recording.",
+        "The main task has 50 words. English speakers complete 2 passes; Japanese and Chinese speakers complete 3 passes.",
+        "Pass 1 uses your natural English. Pass 2 for English speakers uses slower, clearer English.",
+        "Practice uses coffee, pizza, sofa, and chocolate to check recording volume and the retake controls.",
+        "Each recording starts after the stimulus audio and a beep, then ends automatically after 4 seconds.",
+        "After each recording, choose Next or Retake.",
+        "After each pass, the WAV files for that pass are downloaded automatically as a ZIP file.",
+      ],
+      chromeWarning: "This task can only start in Google Chrome.",
+      preloadButton: "Prepare (Chrome check, mic permission, audio preload)",
+      volumeCheckButton: "Play volume check",
+      volumeCheckAgainButton: "Play volume check again",
+      startRecordingButton: "Start recording (Space)",
+      startPracticeButton: "Start practice",
+      micCheckLabel: "Microphone input level",
+      micCheckNote: "Speak and make sure the meter moves.",
+      trialHintBase: "After the beep, say the English word you heard.",
+      acceptButton: "Next",
+      retakeButton: "Retake",
+      recordingDecisionLabel: "Choose whether to use or retake the recording",
+      redownloadButton: "Re-download last ZIP",
+      passes: {
+        naturalLabel: "Pass 1: Natural English",
+        naturalProgressLabel: "Pass 1",
+        naturalShort: "natural English",
+        naturalInstruction:
+          "For Pass 1, repeat each word in the English that feels most natural to you. Do not intentionally strengthen or weaken an accent; just say the English word you heard.",
+        clearLabel: "Pass 2: Clear English",
+        clearProgressLabel: "Pass 2",
+        clearShort: "slower, clearer English",
+        clearInstruction:
+          "For Pass 2, keep your English natural, but speak a little more slowly and clearly. You do not need to imitate a Japanese or Chinese accent.",
+        accentedLabel: (nativeLanguage) =>
+          `Pass 2: ${nativeLanguage.label} accented English`,
+        accentedProgressLabel: "Pass 2",
+        accentedShort: (nativeLanguage) =>
+          `${nativeLanguage.label} accented English`,
+        accentedInstruction: (nativeLanguage) =>
+          `For Pass 2, repeat each word in English while letting features of your native language (${nativeLanguage.label}) come through. Keep the word in English, and do not imitate another person.`,
+        intermediateLabel: "Pass 3: Intermediate accent",
+        intermediateProgressLabel: "Pass 3",
+        intermediateShort: "between natural and accented English",
+        intermediateInstruction:
+          "For Pass 3, repeat each word halfway between your natural English from Pass 1 and the accented English from Pass 2. Aim for an accent that is present but not too strong.",
+        practiceLabel: "Practice: volume and retake check",
+        practiceProgressLabel: "Practice",
+        practiceShort: "practice",
+        practiceInstruction: () =>
+          "In practice, you will use familiar loanwords to check the volume and retake controls. " +
+          "These recordings are not saved in the final ZIP. Use this step to adjust your speaking volume and distance from the microphone.",
+      },
+      messages: {
+        beforeUnload: "Leaving this page will interrupt the experiment.",
+        trialHint: (shortInstruction, takeNo) =>
+          `${shortInstruction} / Take ${takeNo}. After the beep, say the English word you heard.`,
+        recordingLevelPrefix: "Recording level",
+        recordingPeakLabel: "peak",
+        recordingLevels: {
+          clipRisk: {
+            label: "The volume may be too high",
+            advice:
+              "Move slightly farther from the microphone or speak a little more softly.",
+          },
+          tooQuiet: {
+            label: "The volume is a little low",
+            advice:
+              "Move slightly closer to the microphone or speak a little louder.",
+          },
+          loud: {
+            label: "The volume is somewhat high but usable",
+            advice:
+              "If the sound is distorted, move slightly farther from the microphone.",
+          },
+          good: {
+            label: "The recording level is good",
+            advice: "Keep this distance and speaking volume.",
+          },
+        },
+        trialDecision: ({ passLabel, trialLabel, takeNo, levelText }) =>
+          `Recording finished\n${passLabel}\n${trialLabel}\n` +
+          `Press Next to use Take ${takeNo}, or press Retake to record it again.` +
+          levelText,
+        preloadingAudio: (current, total) =>
+          `Preloading audio ${current}/${total}`,
+        audioLoadFailed: (path) => `Could not load audio: ${path}`,
+        idbUnsupported: "This browser does not support IndexedDB.",
+        audioContextUnavailable: "AudioContext is not available.",
+        startPracticeButton: "Start practice",
+        resumePassButton: (label) => `Resume ${label}`,
+        startPassButton: (label) => `Start ${label}`,
+        volumeFirst: "Please complete the volume check first.",
+        practiceStartStatus: "Starting practice.",
+        practiceDoneNeedsAttention:
+          "Practice complete. Some recordings need attention; adjust your microphone position before the main task.",
+        practiceDoneOk:
+          "Practice complete. The recording level looks good overall. You can continue to the main task.",
+        practiceLog: "Practice recordings are not saved in the final ZIP.",
+        practiceDoneMessage: "Practice complete\nContinue to the main pass",
+        practiceError: (message) => `Practice error: ${message}`,
+        audioAssetMissing: (path) => `Audio asset not found: ${path}`,
+        audioPlaybackFailed: (path) => `Audio playback failed: ${path}`,
+        recordingFailed: "Recording could not start or stop.",
+        practiceIntro: (pass) =>
+          `${pass.label}\n\n` +
+          `${pass.instruction}\n\n` +
+          "If the recording level is too low or too high, adjust your distance from the microphone or your speaking volume and record again.\n" +
+          "Press Space to start practice.",
+        passIntro: (pass, completed) =>
+          `${pass.label}${completed > 0 ? " (resuming)" : ""}\n\n` +
+          `${pass.instruction}\n\n` +
+          "After each word, you can choose whether to retake the recording or continue.\n" +
+          "Press Space to start.",
+        checkingMic: "Checking microphone permission...",
+        loadingAudio: "Loading audio files...",
+        prepareFirst: "Please run Prepare first.",
+        volumeAudioMissing: (path) =>
+          `Volume check audio was not found: ${path}`,
+        volumeCheckMessage: "Volume check in progress",
+        volumeCheckStatus: "Playing the volume check audio...",
+        volumePlaybackFailed: "Volume check audio playback failed.",
+        volumeDoneStatus: "Volume check complete. You can start recording.",
+        volumeDoneMessage: "If the volume is OK, start recording",
+        allDoneStatus: "All recordings are complete.",
+        passStartStatus: (label) => `Starting ${label}.`,
+        passDoneNextStatus: (label, count) =>
+          `${label} complete. Downloaded ${count} WAV files as a ZIP. You can continue to the next pass.`,
+        passDoneNextMessage: (label) =>
+          `${label} complete\nThe ZIP file has been downloaded\nContinue to the next pass`,
+        passDoneFinalStatus: (label) =>
+          `${label} complete. The final ZIP file has been downloaded.`,
+        allDoneMessage: "All recordings are complete\nThank you",
+        saved: (name) => `Saved: ${name}`,
+        genericError: (message) => `Error: ${message}`,
+        genericErrorGuidance:
+          "Try again. If the problem keeps happening, contact the experimenter.",
+        micPermissionDenied:
+          "Microphone access is blocked. Allow microphone access in Chrome's site settings, then press Prepare again.",
+        micNotFound:
+          "No usable microphone was found. Check that the microphone is connected, then press Prepare again.",
+        micInUse:
+          "The microphone could not start. Close other apps that may be using it, then press Prepare again.",
+        micSecurity:
+          "The microphone cannot be used from this page. Open the task in Chrome from a secure page.",
+        micUnknown:
+          "The microphone could not start. Check the connection and Chrome microphone permission, then press Prepare again.",
+        missingParticipant: "Enter the participant ID.",
+        selectLanguage: "Select a native language.",
+        chromeOnly:
+          "Please use Google Chrome. This task cannot start in other browsers.",
+        micUnsupported:
+          "This environment does not support microphone recording.",
+        prepared: "Preparation complete.",
+        planLog: ({ nativeLanguage, passCount, plannedTrials }) =>
+          `Native language: ${nativeLanguage} / Planned: ${passCount} passes, ${plannedTrials} recordings`,
+        playVolumeCheckMessage: "Play the volume check",
+        preparedDoVolume:
+          "Preparation complete. First, complete the volume check.",
+        recoveryMessage:
+          "A previous session was found\nYou can resume recording",
+        recoveryStatus: (completed, planned) =>
+          `Recovery data found: ${completed}/${planned}`,
+        prepareError: (message) => `Preparation error: ${message}`,
+        volumeError: (message) => `Volume check error: ${message}`,
+        retryButton: "Try this word again",
+        trialRetryPrompt: (message) =>
+          `A problem occurred while recording this word\n${message}\n\nWhen you are ready, try this word again.`,
+        redownloadUnavailable: "There is no ZIP available to re-download.",
+        redownloaded: (name) => `Re-downloaded: ${name}`,
+      },
+    },
+    zh: {
+      langAttr: "zh-CN",
+      title: "口音学习阶段",
+      participantLabel: "参与者 ID（例如：001）",
+      nativeLanguageLabel: "母语",
+      languageOptions: {
+        english: "英语",
+        japanese: "日语",
+        chinese: "中文",
+      },
+      summaryTitle: "实验概要：",
+      summaryItems: [
+        "请使用谷歌 Chrome，因为本任务需要麦克风录音和压缩文件下载。",
+        "正式录音前，请先完成音量检查和练习录音。",
+        "正式任务包含 50 个单词。英语母语者完成 2 轮；日语和中文母语者完成 3 轮。",
+        "第 1 轮使用自然英语。第 2 轮使用带有母语口音的英语。第 3 轮介于两者之间。",
+        "练习使用咖啡、披萨、沙发和巧克力，用来确认录音音量和重录操作。",
+        "每次录音会在刺激音频和提示音之后开始，并在 4 秒后自动结束。",
+        "每次录音后，请选择下一步或重录。",
+        "每轮结束后，该轮的音频文件会自动打包为压缩文件下载。",
+      ],
+      chromeWarning: "本任务只能在 Google Chrome 中开始。",
+      preloadButton: "准备（Chrome 检查、麦克风权限、音频加载）",
+      volumeCheckButton: "播放音量检查",
+      volumeCheckAgainButton: "再次播放音量检查",
+      startRecordingButton: "开始录音（空格键）",
+      startPracticeButton: "开始练习",
+      micCheckLabel: "麦克风输入音量",
+      micCheckNote: "请说话并确认音量条会移动。",
+      trialHintBase: "提示音后，请说出你听到的英语单词。",
+      acceptButton: "下一步",
+      retakeButton: "重录",
+      recordingDecisionLabel: "选择使用录音或重新录音",
+      redownloadButton: "重新下载上一个压缩文件",
+      passes: {
+        naturalLabel: "第 1 轮：自然英语",
+        naturalProgressLabel: "第 1 轮",
+        naturalShort: "自然英语",
+        naturalInstruction:
+          "第 1 轮，请用你平时最自然的英语重复。不要刻意增强或减弱口音，只需说出你听到的英语单词。",
+        clearLabel: "第 2 轮：稍慢、清楚的英语",
+        clearProgressLabel: "第 2 轮",
+        clearShort: "稍慢、清楚的英语",
+        clearInstruction:
+          "第 2 轮，请保持自然英语，但说得稍慢、清楚一些。不需要模仿日语或中文口音。",
+        accentedLabel: (nativeLanguage) =>
+          `第 2 轮：${nativeLanguage.labelZh}口音较强的英语`,
+        accentedProgressLabel: "第 2 轮",
+        accentedShort: (nativeLanguage) =>
+          `${nativeLanguage.labelZh}口音较强的英语`,
+        accentedInstruction: (nativeLanguage) =>
+          `第 2 轮，请用英语重复，并让你的母语（${nativeLanguage.labelZh}）的特点体现出来。单词仍保持英语，不需要模仿别人，请自然地体现你自己的${nativeLanguage.labelZh}口音。`,
+        intermediateLabel: "第 3 轮：自然英语和母语口音之间",
+        intermediateProgressLabel: "第 3 轮",
+        intermediateShort: "自然英语和母语口音之间",
+        intermediateInstruction:
+          "第 3 轮，请用介于第 1 轮自然英语和第 2 轮母语口音英语之间的方式重复。口音不要完全消除，也不要过强。",
+        practiceLabel: "练习：音量和重录检查",
+        practiceProgressLabel: "练习",
+        practiceShort: "练习",
+        practiceInstruction: () =>
+          "练习中会使用熟悉的外来词来确认音量和重录操作。" +
+          "这些录音不会保存在最终压缩文件中。请在这里调整说话音量和与麦克风的距离。",
+      },
+      messages: {
+        beforeUnload: "离开此页面会中断实验。",
+        trialHint: (shortInstruction, takeNo) =>
+          `${shortInstruction} / 第 ${takeNo} 次录音。提示音后，请说出你听到的英语单词。`,
+        recordingLevelPrefix: "录音音量",
+        recordingPeakLabel: "峰值",
+        recordingLevels: {
+          clipRisk: {
+            label: "音量可能过大",
+            advice: "请稍微远离麦克风，或稍微小声一些。",
+          },
+          tooQuiet: {
+            label: "音量略小",
+            advice: "请稍微靠近麦克风，或稍微大声一些。",
+          },
+          loud: {
+            label: "音量略大，但可以使用",
+            advice: "如果声音有失真，请稍微远离麦克风。",
+          },
+          good: {
+            label: "录音音量良好",
+            advice: "请保持这个距离和音量。",
+          },
+        },
+        trialDecision: ({ passLabel, trialLabel, takeNo, levelText }) =>
+          `录音结束\n${passLabel}\n${trialLabel}\n` +
+          `如果使用第 ${takeNo} 次录音，请按“下一步”；如果要重新录音，请按“重录”。` +
+          levelText,
+        preloadingAudio: (current, total) => `正在加载音频 ${current}/${total}`,
+        audioLoadFailed: (path) => `无法加载音频：${path}`,
+        idbUnsupported: "此浏览器不支持录音数据的临时保存。",
+        audioContextUnavailable: "此浏览器无法使用音频功能。",
+        startPracticeButton: "开始练习",
+        resumePassButton: (label) => `继续 ${label}`,
+        startPassButton: (label) => `开始 ${label}`,
+        volumeFirst: "请先完成音量检查。",
+        practiceStartStatus: "开始练习。",
+        practiceDoneNeedsAttention:
+          "练习完成。部分录音音量需要注意；正式录音前请调整麦克风位置。",
+        practiceDoneOk: "练习完成。录音音量整体良好，可以进入正式任务。",
+        practiceLog: "练习录音不会保存在最终压缩文件中。",
+        practiceDoneMessage: "练习完成\n请进入正式录音轮次",
+        practiceError: (message) => `练习错误：${message}`,
+        audioAssetMissing: (path) => `找不到音频文件：${path}`,
+        audioPlaybackFailed: (path) => `音频播放失败：${path}`,
+        recordingFailed: "录音无法开始或停止。",
+        practiceIntro: (pass) =>
+          `${pass.label}\n\n` +
+          `${pass.instruction}\n\n` +
+          "如果录音音量过小或过大，请调整与麦克风的距离或说话音量，然后重录。\n" +
+          "按空格键开始练习。",
+        passIntro: (pass, completed) =>
+          `${pass.label}${completed > 0 ? "（从上次继续）" : ""}\n\n` +
+          `${pass.instruction}\n\n` +
+          "每个单词录音后，可以选择重录或继续。\n" +
+          "按空格键开始。",
+        checkingMic: "正在确认麦克风权限...",
+        loadingAudio: "正在加载音频文件...",
+        prepareFirst: "请先执行准备。",
+        volumeAudioMissing: (path) => `找不到音量检查音频：${path}`,
+        volumeCheckMessage: "正在进行音量检查",
+        volumeCheckStatus: "正在播放音量检查音频...",
+        volumePlaybackFailed: "音量检查音频播放失败。",
+        volumeDoneStatus: "音量检查完成。可以开始录音。",
+        volumeDoneMessage: "如果音量没有问题，请开始录音",
+        allDoneStatus: "所有录音都已完成。",
+        passStartStatus: (label) => `正在开始 ${label}。`,
+        passDoneNextStatus: (label, count) =>
+          `${label} 完成。已将 ${count} 个音频文件自动下载为压缩文件。可以进入下一轮。`,
+        passDoneNextMessage: (label) =>
+          `${label} 完成\n压缩文件已下载\n请进入下一轮`,
+        passDoneFinalStatus: (label) =>
+          `${label} 完成。最终压缩文件已自动下载。`,
+        allDoneMessage: "所有录音都已结束\n谢谢配合",
+        saved: (name) => `已保存：${name}`,
+        genericError: (message) => `错误：${message}`,
+        genericErrorGuidance:
+          "请重新尝试。如果问题反复出现，请联系实验负责人。",
+        micPermissionDenied:
+          "麦克风权限被阻止。请在 Chrome 的网站权限设置中允许使用麦克风，然后再次点击“准备”。",
+        micNotFound:
+          "没有找到可用的麦克风。请确认麦克风已连接，然后再次点击“准备”。",
+        micInUse:
+          "无法启动麦克风。请确认没有其他应用正在使用麦克风，然后再次点击“准备”。",
+        micSecurity:
+          "此页面无法使用麦克风。请在 Chrome 中以安全页面重新打开任务。",
+        micUnknown:
+          "无法启动麦克风。请检查连接和 Chrome 的麦克风权限，然后再次点击“准备”。",
+        missingParticipant: "请输入参与者 ID。",
+        selectLanguage: "请选择母语。",
+        chromeOnly: "请使用 Google Chrome。其他浏览器无法开始本任务。",
+        micUnsupported: "当前环境不支持麦克风录音。",
+        prepared: "准备完成。",
+        planLog: ({ nativeLanguage, passCount, plannedTrials }) =>
+          `母语：${nativeLanguage} / 计划：${passCount} 轮，${plannedTrials} 次录音`,
+        playVolumeCheckMessage: "请播放音量检查",
+        preparedDoVolume: "准备完成。请先完成音量检查。",
+        recoveryMessage: "检测到上次的进度\n可以继续录音",
+        recoveryStatus: (completed, planned) =>
+          `检测到恢复数据：${completed}/${planned}`,
+        prepareError: (message) => `准备错误：${message}`,
+        volumeError: (message) => `音量检查错误：${message}`,
+        retryButton: "重新尝试这个单词",
+        trialRetryPrompt: (message) =>
+          `录制这个单词时出现问题\n${message}\n\n准备好后，请重新尝试这个单词。`,
+        redownloadUnavailable: "没有可重新下载的压缩文件。",
+        redownloaded: (name) => `已重新下载：${name}`,
+      },
+    },
   };
 
   const TALKERS = [
@@ -41,7 +630,11 @@
     {
       word: "chocolate",
       audioPath: "../practice_calibration/chocolate.wav",
-      labels: { english: "chocolate", japanese: "チョコレート", chinese: "巧克力" },
+      labels: {
+        english: "chocolate",
+        japanese: "チョコレート",
+        chinese: "巧克力",
+      },
     },
   ];
 
@@ -107,6 +700,13 @@
   const redownloadZipBtn = document.getElementById("redownload-zip-btn");
   const participantInput = document.getElementById("participant-id");
   const nativeLanguageSelect = document.getElementById("native-language");
+  const participantLabelEl = document.getElementById("participant-label");
+  const nativeLanguageLabelEl = document.getElementById(
+    "native-language-label",
+  );
+  const summaryTitleEl = document.getElementById("summary-title");
+  const summaryListEl = document.getElementById("summary-list");
+  const chromeWarningEl = document.getElementById("chrome-warning");
   const configEl = document.getElementById("config");
   const statusEl = document.getElementById("status");
   const logEl = document.getElementById("log");
@@ -118,6 +718,7 @@
   const trialHintEl = document.getElementById("trial-hint");
   const trialTimerEl = document.getElementById("trial-timer");
   const trialTimerFillEl = document.getElementById("trial-timer-fill");
+  const messagePanelEl = document.getElementById("message-panel");
   const messageEl = document.getElementById("message");
   const trialActionsEl = document.getElementById("trial-actions");
   const acceptRecordingBtn = document.getElementById("accept-recording-btn");
@@ -131,11 +732,12 @@
   let isRunning = false;
   let volumeCheckCompleted = false;
   let micMeterRaf = null;
+  let activeUiLanguage = "en";
 
   window.addEventListener("beforeunload", (e) => {
     if (!isRunning) return;
     e.preventDefault();
-    e.returnValue = "このページを離れると実験が中断されます。";
+    e.returnValue = getUiCopy().messages.beforeUnload;
   });
 
   const setStatus = (txt) => {
@@ -145,6 +747,86 @@
   const setLog = (txt) => {
     logEl.textContent = txt;
   };
+
+  function uiLanguageForNative(nativeLanguageId) {
+    if (nativeLanguageId === "japanese") return "ja";
+    if (nativeLanguageId === "chinese") return "zh";
+    return "en";
+  }
+
+  function getUiCopy() {
+    const copy = UI_COPY[activeUiLanguage];
+    return copy && copy.messages ? copy : UI_COPY.en;
+  }
+
+  function getStaticCopy() {
+    return UI_COPY[activeUiLanguage] || UI_COPY.en;
+  }
+
+  function renderStaticCopy() {
+    const copy = getStaticCopy();
+    document.documentElement.lang = copy.langAttr;
+    document.title = copy.title || UI_COPY.en.title;
+    if (participantLabelEl)
+      participantLabelEl.textContent = copy.participantLabel;
+    if (nativeLanguageLabelEl)
+      nativeLanguageLabelEl.textContent = copy.nativeLanguageLabel;
+    if (summaryTitleEl) summaryTitleEl.textContent = copy.summaryTitle;
+    if (summaryListEl) {
+      summaryListEl.textContent = "";
+      copy.summaryItems.forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        summaryListEl.appendChild(li);
+      });
+    }
+    if (chromeWarningEl) chromeWarningEl.textContent = copy.chromeWarning;
+    [...nativeLanguageSelect.options].forEach((option) => {
+      option.textContent =
+        copy.languageOptions[option.value] || option.textContent;
+    });
+    preloadBtn.textContent = copy.preloadButton;
+    volumeCheckBtn.textContent = volumeCheckCompleted
+      ? copy.volumeCheckAgainButton
+      : copy.volumeCheckButton;
+    if (!preparedSession) startPassBtn.textContent = copy.startRecordingButton;
+    if (micCheckEl) {
+      const micLabelEl = document.getElementById("mic-check-label");
+      const micNoteEl = document.getElementById("mic-check-note");
+      if (micLabelEl) micLabelEl.textContent = copy.micCheckLabel;
+      if (micNoteEl) micNoteEl.textContent = copy.micCheckNote;
+    }
+    trialHintEl.textContent = copy.trialHintBase;
+    acceptRecordingBtn.textContent = copy.acceptButton;
+    retakeRecordingBtn.textContent = copy.retakeButton;
+    if (trialActionsEl)
+      trialActionsEl.setAttribute("aria-label", copy.recordingDecisionLabel);
+    redownloadZipBtn.textContent = copy.redownloadButton;
+  }
+
+  function setUiLanguage(languageId) {
+    activeUiLanguage = languageId;
+    renderStaticCopy();
+    if (preparedSession) refreshStartButton();
+  }
+
+  function setUiLanguageForNative(nativeLanguageId) {
+    setUiLanguage(uiLanguageForNative(nativeLanguageId));
+  }
+
+  function isEditableTarget(target) {
+    const tagName = target?.tagName;
+    return (
+      target?.isContentEditable ||
+      tagName === "INPUT" ||
+      tagName === "TEXTAREA" ||
+      tagName === "SELECT"
+    );
+  }
+
+  function isButtonTarget(target) {
+    return target?.tagName === "BUTTON";
+  }
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -163,7 +845,10 @@
   async function playRecordingStartBeep() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
-    if (!playRecordingStartBeep.ctx || playRecordingStartBeep.ctx.state === "closed") {
+    if (
+      !playRecordingStartBeep.ctx ||
+      playRecordingStartBeep.ctx.state === "closed"
+    ) {
       playRecordingStartBeep.ctx = new Ctx();
     }
 
@@ -195,6 +880,9 @@
 
   function hideTrialActions() {
     if (trialActionsEl) trialActionsEl.classList.add("hidden");
+    if (acceptRecordingBtn) acceptRecordingBtn.classList.remove("hidden");
+    if (retakeRecordingBtn)
+      retakeRecordingBtn.textContent = getStaticCopy().retakeButton;
   }
 
   function showMessage(text) {
@@ -202,30 +890,43 @@
     hideTrialActions();
     mainDisplayEl.style.display = "none";
     messageEl.textContent = text;
+    if (messagePanelEl) messagePanelEl.classList.remove("decision-active");
+    messageEl.classList.remove("decision-message");
+    messageEl.classList.toggle(
+      "long-message",
+      text.length > 90 || text.includes("\n\n"),
+    );
     messageEl.style.display = "block";
     document.body.classList.remove("presenting");
   }
 
   function showStimulus(trial, pass, takeNo) {
     hideTrialActions();
+    if (messagePanelEl) messagePanelEl.classList.remove("decision-active");
+    messageEl.classList.remove("long-message", "decision-message");
     messageEl.style.display = "none";
     mainDisplayEl.style.display = "flex";
     jpWordEl.textContent = trial.displayText || trial.jp;
-    trialHintEl.textContent =
-      `${pass.shortInstruction} / Take ${takeNo}. ビープ音のあとに聞こえた英単語を発話してください。`;
+    trialHintEl.textContent = getUiCopy().messages.trialHint(
+      pass.shortInstruction,
+      takeNo,
+    );
     document.body.classList.add("presenting");
   }
 
   function hideStimulus() {
     mainDisplayEl.style.display = "none";
     messageEl.style.display = "none";
+    if (messagePanelEl) messagePanelEl.classList.remove("decision-active");
+    messageEl.classList.remove("long-message", "decision-message");
     hideTrialActions();
     stopTrialTimer();
     document.body.classList.remove("presenting");
   }
 
   function showProgress(done, total, label) {
-    const pct = total <= 0 ? 0 : Math.min(100, Math.max(0, (done / total) * 100));
+    const pct =
+      total <= 0 ? 0 : Math.min(100, Math.max(0, (done / total) * 100));
     progressFillEl.style.width = `${pct}%`;
     progressLabelEl.textContent = `${label}: ${done}/${total}`;
     progressLabelEl.style.display = "block";
@@ -294,43 +995,70 @@
   function idbRequest(request) {
     return new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error || new Error("IndexedDB request failed"));
+      request.onerror = () =>
+        reject(request.error || new Error("IndexedDB request failed"));
     });
   }
 
   function idbTxDone(tx) {
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
-      tx.onabort = () => reject(tx.error || new Error("IndexedDB transaction aborted"));
-      tx.onerror = () => reject(tx.error || new Error("IndexedDB transaction failed"));
+      tx.onabort = () =>
+        reject(tx.error || new Error("IndexedDB transaction aborted"));
+      tx.onerror = () =>
+        reject(tx.error || new Error("IndexedDB transaction failed"));
     });
   }
 
   async function openRecoveryDb() {
     if (!window.indexedDB) {
-      throw new Error("このブラウザはIndexedDBに対応していません。");
+      throw new Error(getUiCopy().messages.idbUnsupported);
     }
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(RECOVERY_DB_NAME, RECOVERY_DB_VERSION);
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(RECOVERY_SESSIONS_STORE)) {
-          db.createObjectStore(RECOVERY_SESSIONS_STORE, { keyPath: "sessionId" });
+          db.createObjectStore(RECOVERY_SESSIONS_STORE, {
+            keyPath: "sessionId",
+          });
         }
         if (!db.objectStoreNames.contains(RECOVERY_TRIALS_STORE)) {
           const trialStore = db.createObjectStore(RECOVERY_TRIALS_STORE, {
             keyPath: ["sessionId", "serialNo"],
           });
-          trialStore.createIndex(RECOVERY_BY_SESSION_INDEX, "sessionId", { unique: false });
+          trialStore.createIndex(RECOVERY_BY_SESSION_INDEX, "sessionId", {
+            unique: false,
+          });
         } else {
-          const trialStore = request.transaction.objectStore(RECOVERY_TRIALS_STORE);
+          const trialStore = request.transaction.objectStore(
+            RECOVERY_TRIALS_STORE,
+          );
           if (!trialStore.indexNames.contains(RECOVERY_BY_SESSION_INDEX)) {
-            trialStore.createIndex(RECOVERY_BY_SESSION_INDEX, "sessionId", { unique: false });
+            trialStore.createIndex(RECOVERY_BY_SESSION_INDEX, "sessionId", {
+              unique: false,
+            });
+          }
+        }
+        if (!db.objectStoreNames.contains(RECOVERY_ZIPS_STORE)) {
+          const zipStore = db.createObjectStore(RECOVERY_ZIPS_STORE, {
+            keyPath: ["sessionId", "passIndex"],
+          });
+          zipStore.createIndex(RECOVERY_BY_SESSION_INDEX, "sessionId", {
+            unique: false,
+          });
+        } else {
+          const zipStore = request.transaction.objectStore(RECOVERY_ZIPS_STORE);
+          if (!zipStore.indexNames.contains(RECOVERY_BY_SESSION_INDEX)) {
+            zipStore.createIndex(RECOVERY_BY_SESSION_INDEX, "sessionId", {
+              unique: false,
+            });
           }
         }
       };
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error || new Error("IndexedDB open failed"));
+      request.onerror = () =>
+        reject(request.error || new Error("IndexedDB open failed"));
     });
   }
 
@@ -390,9 +1118,54 @@
     });
   }
 
+  function isAcceptedRecoveryRow(row) {
+    if (!row || row.phase !== "main") return false;
+    return (
+      row.accepted !== false &&
+      row.recordingDecision !== "pending" &&
+      row.recordingDecision !== "retaken"
+    );
+  }
+
+  async function saveRecoveryZip(sessionId, passIndex, zipName, zipBlob) {
+    await withRecoveryDb(async (db) => {
+      const tx = db.transaction(RECOVERY_ZIPS_STORE, "readwrite");
+      tx.objectStore(RECOVERY_ZIPS_STORE).put({
+        sessionId,
+        passIndex,
+        zipName,
+        zipBlob,
+        updatedAt: Date.now(),
+      });
+      await idbTxDone(tx);
+    });
+  }
+
+  async function getLatestRecoveryZip(sessionId) {
+    return withRecoveryDb(async (db) => {
+      const tx = db.transaction(RECOVERY_ZIPS_STORE, "readonly");
+      const records = await idbRequest(
+        tx
+          .objectStore(RECOVERY_ZIPS_STORE)
+          .index(RECOVERY_BY_SESSION_INDEX)
+          .getAll(IDBKeyRange.only(sessionId)),
+      );
+      await idbTxDone(tx);
+      const latest = (records || [])
+        .filter((record) => record?.zipBlob && record?.zipName)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+      return latest
+        ? { zipBlob: latest.zipBlob, zipName: latest.zipName }
+        : null;
+    });
+  }
+
   async function loadRecoverySnapshot(sessionId) {
     return withRecoveryDb(async (db) => {
-      const tx = db.transaction([RECOVERY_SESSIONS_STORE, RECOVERY_TRIALS_STORE], "readonly");
+      const tx = db.transaction(
+        [RECOVERY_SESSIONS_STORE, RECOVERY_TRIALS_STORE],
+        "readonly",
+      );
       const metaReq = tx.objectStore(RECOVERY_SESSIONS_STORE).get(sessionId);
       const trialReq = tx
         .objectStore(RECOVERY_TRIALS_STORE)
@@ -406,7 +1179,7 @@
       const sorted = (trialRecords || [])
         .filter((r) => r && r.row && Number.isFinite(r.serialNo))
         .sort((a, b) => a.serialNo - b.serialNo);
-      const rows = sorted.map((r) => r.row);
+      const rows = sorted.map((r) => r.row).filter(isAcceptedRecoveryRow);
       return {
         meta: meta || null,
         trialRecords: sorted,
@@ -415,9 +1188,13 @@
     });
   }
 
-  async function clearRecoverySession(sessionId) {
+  async function clearRecoverySession(sessionId, options = {}) {
+    const preserveZips = Boolean(options.preserveZips);
     await withRecoveryDb(async (db) => {
-      const tx = db.transaction([RECOVERY_SESSIONS_STORE, RECOVERY_TRIALS_STORE], "readwrite");
+      const tx = db.transaction(
+        [RECOVERY_SESSIONS_STORE, RECOVERY_TRIALS_STORE, RECOVERY_ZIPS_STORE],
+        "readwrite",
+      );
       tx.objectStore(RECOVERY_SESSIONS_STORE).delete(sessionId);
       const trialStore = tx.objectStore(RECOVERY_TRIALS_STORE);
       const index = trialStore.index(RECOVERY_BY_SESSION_INDEX);
@@ -435,13 +1212,32 @@
         cursorReq.onerror = () =>
           reject(cursorReq.error || new Error("IndexedDB cursor failed"));
       });
+      if (!preserveZips) {
+        const zipStore = tx.objectStore(RECOVERY_ZIPS_STORE);
+        const zipIndex = zipStore.index(RECOVERY_BY_SESSION_INDEX);
+        const zipCursorReq = zipIndex.openCursor(IDBKeyRange.only(sessionId));
+        await new Promise((resolve, reject) => {
+          zipCursorReq.onsuccess = () => {
+            const cursor = zipCursorReq.result;
+            if (!cursor) {
+              resolve();
+              return;
+            }
+            cursor.delete();
+            cursor.continue();
+          };
+          zipCursorReq.onerror = () =>
+            reject(zipCursorReq.error || new Error("IndexedDB cursor failed"));
+        });
+      }
       await idbTxDone(tx);
     });
   }
 
   function recoveryRecordMatches(record, filter) {
-    if (!filter) return true;
     const row = record.row || {};
+    if (!isAcceptedRecoveryRow(row)) return false;
+    if (!filter) return true;
     if (filter.phase && row.phase !== filter.phase) return false;
     if (filter.passIndex && row.passIndex !== filter.passIndex) return false;
     return true;
@@ -449,7 +1245,9 @@
 
   async function getRecoveryArtifacts(sessionId, filter = null) {
     const snapshot = await loadRecoverySnapshot(sessionId);
-    const records = snapshot.trialRecords.filter((record) => recoveryRecordMatches(record, filter));
+    const records = snapshot.trialRecords.filter((record) =>
+      recoveryRecordMatches(record, filter),
+    );
     const files = [];
     for (const record of records) {
       if (!record.row?.recordingFile || !record.wavBlob) continue;
@@ -540,34 +1338,35 @@
     const peak = rec.peak || 0;
     const rms = rec.rms || 0;
     const peakDbfs = peakToDbfs(peak);
+    const levels = getUiCopy().messages.recordingLevels;
     if (peak >= 0.98) {
       return {
         code: "clip_risk",
-        label: "音量が大きすぎる可能性があります",
-        advice: "マイクから少し離れるか、少し小さめに発話してください。",
+        label: levels.clipRisk.label,
+        advice: levels.clipRisk.advice,
         peakDbfs,
       };
     }
     if (rms < 0.008 || peak < 0.05) {
       return {
         code: "too_quiet",
-        label: "音量が小さめです",
-        advice: "マイクに少し近づくか、少し大きめに発話してください。",
+        label: levels.tooQuiet.label,
+        advice: levels.tooQuiet.advice,
         peakDbfs,
       };
     }
     if (peak > 0.85) {
       return {
         code: "loud",
-        label: "音量はやや大きめですが使用可能です",
-        advice: "音割れが気になる場合は少しだけマイクから離れてください。",
+        label: levels.loud.label,
+        advice: levels.loud.advice,
         peakDbfs,
       };
     }
     return {
       code: "good",
-      label: "録音レベルは良好です",
-      advice: "この距離と声量を保ってください。",
+      label: levels.good.label,
+      advice: levels.good.advice,
       peakDbfs,
     };
   }
@@ -575,17 +1374,59 @@
   function formatRecordingLevel(rec) {
     const level = assessRecordingLevel(rec);
     const peakText = formatDb(level.peakDbfs);
-    return `録音レベル: ${level.label}${peakText ? `（peak ${peakText}）` : ""}\n${level.advice}`;
+    const messages = getUiCopy().messages;
+    return (
+      `${messages.recordingLevelPrefix}: ${level.label}` +
+      `${peakText ? ` (${messages.recordingPeakLabel} ${peakText})` : ""}\n${level.advice}`
+    );
+  }
+
+  function getUserFacingErrorMessage(err) {
+    const messages = getUiCopy().messages;
+    const name = err?.name || "";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      return messages.micPermissionDenied;
+    }
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      return messages.micNotFound;
+    }
+    if (name === "NotReadableError" || name === "TrackStartError") {
+      return messages.micInUse;
+    }
+    if (name === "SecurityError") {
+      return messages.micSecurity;
+    }
+    const rawMessage = String(err?.message || "").trim();
+    if (!rawMessage) return messages.genericErrorGuidance;
+    if (/indexeddb|database|transaction|cursor/i.test(rawMessage))
+      return messages.idbUnsupported;
+    if (/audiocontext|audio context/i.test(rawMessage))
+      return messages.audioContextUnavailable;
+    if (/permission|denied|not allowed/i.test(rawMessage))
+      return messages.micPermissionDenied;
+    if (/device|microphone|mic|media/i.test(rawMessage))
+      return `${rawMessage}\n${messages.micUnknown}`;
+    return `${rawMessage}\n${messages.genericErrorGuidance}`;
   }
 
   function waitForTrialDecision(pass, trial, takeNo, rec) {
     stopTrialTimer();
+    hideProgress();
     mainDisplayEl.style.display = "none";
     const levelText = rec ? `\n\n${formatRecordingLevel(rec)}` : "";
-    messageEl.textContent =
-      `録音が終了しました\n${pass.label}\n${trial.jp} / ${trial.word}\n` +
-      `Take ${takeNo} を使う場合は「次へ」、録り直す場合は「もう一度録音する」を押してください。` +
-      levelText;
+    const displayText = trial.displayText || trial.jp;
+    const trialLabel =
+      displayText && displayText !== trial.word
+        ? `${displayText} / ${trial.word}`
+        : trial.word;
+    messageEl.textContent = getUiCopy().messages.trialDecision({
+      passLabel: pass.label,
+      trialLabel,
+      takeNo,
+      levelText,
+    });
+    if (messagePanelEl) messagePanelEl.classList.add("decision-active");
+    messageEl.classList.add("long-message", "decision-message");
     messageEl.style.display = "block";
     document.body.classList.remove("presenting");
     trialActionsEl.classList.remove("hidden");
@@ -603,6 +1444,7 @@
       const onRetake = () => cleanup("retake");
       const onKeyDown = (ev) => {
         if (ev.repeat) return;
+        if (isButtonTarget(ev.target)) return;
         if (ev.code === "KeyR") {
           ev.preventDefault();
           cleanup("retake");
@@ -615,6 +1457,41 @@
 
       acceptRecordingBtn.addEventListener("click", onAccept);
       retakeRecordingBtn.addEventListener("click", onRetake);
+      document.addEventListener("keydown", onKeyDown);
+    });
+  }
+
+  function waitForRetryCurrentTrial(promptText) {
+    stopTrialTimer();
+    hideProgress();
+    mainDisplayEl.style.display = "none";
+    messageEl.textContent = promptText;
+    if (messagePanelEl) messagePanelEl.classList.add("decision-active");
+    messageEl.classList.add("long-message", "decision-message");
+    messageEl.style.display = "block";
+    document.body.classList.remove("presenting");
+    acceptRecordingBtn.classList.add("hidden");
+    retakeRecordingBtn.textContent = getUiCopy().messages.retryButton;
+    trialActionsEl.classList.remove("hidden");
+
+    return new Promise((resolve) => {
+      const cleanup = () => {
+        retakeRecordingBtn.removeEventListener("click", onRetry);
+        document.removeEventListener("keydown", onKeyDown);
+        acceptRecordingBtn.classList.remove("hidden");
+        hideTrialActions();
+        resolve();
+      };
+      const onRetry = () => cleanup();
+      const onKeyDown = (ev) => {
+        if (ev.repeat) return;
+        if (isButtonTarget(ev.target)) return;
+        if (ev.code === "Enter" || ev.code === "Space" || ev.key === " ") {
+          ev.preventDefault();
+          cleanup();
+        }
+      };
+      retakeRecordingBtn.addEventListener("click", onRetry);
       document.addEventListener("keydown", onKeyDown);
     });
   }
@@ -637,15 +1514,19 @@
   }
 
   function getPassDefinitions(nativeLanguageId) {
-    const nativeLanguage = NATIVE_LANGUAGES[nativeLanguageId] || NATIVE_LANGUAGES.japanese;
+    const nativeLanguage =
+      NATIVE_LANGUAGES[nativeLanguageId] || NATIVE_LANGUAGES.japanese;
+    const passCopy = (
+      UI_COPY[uiLanguageForNative(nativeLanguage.id)] || UI_COPY.en
+    ).passes;
     const naturalPass = {
       passIndex: 1,
       id: "natural_english",
-      label: "Pass 1: Natural English",
+      label: passCopy.naturalLabel,
+      progressLabel: passCopy.naturalProgressLabel,
       condition: "natural_english",
-      shortInstruction: "自然な英語",
-      instruction:
-        "1回目は、あなたが普段いちばん自然だと思う英語でリピートしてください。訛りを意識して強めたり弱めたりせず、聞こえた英単語をそのまま発話してください。",
+      shortInstruction: passCopy.naturalShort,
+      instruction: passCopy.naturalInstruction,
     };
 
     if (nativeLanguage.id === "english") {
@@ -654,11 +1535,11 @@
         {
           passIndex: 2,
           id: "clear_english",
-          label: "Pass 2: Clear English",
+          label: passCopy.clearLabel,
+          progressLabel: passCopy.clearProgressLabel,
           condition: "clear_english",
-          shortInstruction: "ゆっくり・明瞭な英語",
-          instruction:
-            "2回目は、自然な英語を保ったまま、少しゆっくり・はっきり発話してください。日本語や中国語の訛りをまねる必要はありません。",
+          shortInstruction: passCopy.clearShort,
+          instruction: passCopy.clearInstruction,
         },
       ];
     }
@@ -668,35 +1549,38 @@
       {
         passIndex: 2,
         id: `${nativeLanguage.id}_accented_english`,
-        label: `Pass 2: ${nativeLanguage.label} accented English`,
+        label: passCopy.accentedLabel(nativeLanguage),
+        progressLabel: passCopy.accentedProgressLabel,
         condition: `${nativeLanguage.id}_accented_english`,
-        shortInstruction: `${nativeLanguage.labelJa}の訛りを強めた英語`,
-        instruction:
-          `2回目は、自分の母語（${nativeLanguage.labelJa}）の特徴が出るように英語でリピートしてください。単語は英語のまま、無理に別人をまねず、あなた自身の${nativeLanguage.labelJa}らしい訛りを意識してください。`,
+        shortInstruction: passCopy.accentedShort(nativeLanguage),
+        instruction: passCopy.accentedInstruction(nativeLanguage),
       },
       {
         passIndex: 3,
         id: "intermediate_accent",
-        label: "Pass 3: Intermediate accent",
+        label: passCopy.intermediateLabel,
+        progressLabel: passCopy.intermediateProgressLabel,
         condition: "intermediate_accent",
-        shortInstruction: "自然な英語と母語訛りの中間",
-        instruction:
-          "3回目は、1回目の自然な英語と2回目の母語訛りの中間くらいでリピートしてください。訛りを完全には消さず、強すぎもしない発話を目指してください。",
+        shortInstruction: passCopy.intermediateShort,
+        instruction: passCopy.intermediateInstruction,
       },
     ];
   }
 
   function buildPracticePass(nativeLanguageId) {
-    const nativeLanguage = NATIVE_LANGUAGES[nativeLanguageId] || NATIVE_LANGUAGES.japanese;
+    const nativeLanguage =
+      NATIVE_LANGUAGES[nativeLanguageId] || NATIVE_LANGUAGES.japanese;
+    const passCopy = (
+      UI_COPY[uiLanguageForNative(nativeLanguage.id)] || UI_COPY.en
+    ).passes;
     return {
       passIndex: 0,
       id: "practice_calibration",
-      label: "Practice: volume and retake check",
+      label: passCopy.practiceLabel,
+      progressLabel: passCopy.practiceProgressLabel,
       condition: "practice_calibration",
-      shortInstruction: "練習",
-      instruction:
-        `練習では、${nativeLanguage.labelJa}で見慣れた借用語を使って、音量と録り直し操作を確認します。` +
-        "ここでの録音は最終ZIPには保存されません。声の大きさとマイクまでの距離をここで調整してください。",
+      shortInstruction: passCopy.practiceShort,
+      instruction: passCopy.practiceInstruction(nativeLanguage),
       trials: PRACTICE_ITEMS.map((item, idx) => ({
         phase: "practice",
         word: item.word,
@@ -761,12 +1645,13 @@
     const audioMap = new Map();
     for (let i = 0; i < paths.length; i += 1) {
       const path = paths[i];
-      setStatus(`音声プリロード中 ${i + 1}/${paths.length}`);
+      setStatus(getUiCopy().messages.preloadingAudio(i + 1, paths.length));
       const audio = await new Promise((resolve, reject) => {
         const el = new Audio();
         el.preload = "auto";
         el.oncanplaythrough = () => resolve(el);
-        el.onerror = () => reject(new Error(`音声が読み込めません: ${path}`));
+        el.onerror = () =>
+          reject(new Error(getUiCopy().messages.audioLoadFailed(path)));
         el.src = path;
         el.load();
       });
@@ -835,7 +1720,7 @@
     constructor(stream) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) {
-        throw new Error("AudioContext が利用できません。");
+        throw new Error(getUiCopy().messages.audioContextUnavailable);
       }
       this.stream = stream;
       this.audioCtx = new Ctx();
@@ -918,7 +1803,7 @@
     for (let n = 0; n < 256; n += 1) {
       let c = n;
       for (let k = 0; k < 8; k += 1) {
-        c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
       }
       table[n] = c >>> 0;
     }
@@ -1112,7 +1997,9 @@
           r.recordingDurationMs.toFixed(3),
           r.recordingRms.toFixed(6),
           r.recordingPeak.toFixed(6),
-          Number.isFinite(r.recordingPeakDbfs) ? r.recordingPeakDbfs.toFixed(3) : "",
+          Number.isFinite(r.recordingPeakDbfs)
+            ? r.recordingPeakDbfs.toFixed(3)
+            : "",
           r.recordingLevel,
           r.trialStartEpochMs,
           r.audioOnsetEpochMs,
@@ -1135,7 +2022,10 @@
   }
 
   function xmlSafeText(value) {
-    return String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+    return String(value).replace(
+      /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,
+      "",
+    );
   }
 
   function excelColName(index1Based) {
@@ -1165,7 +2055,11 @@
         const cellXml = row
           .map((cellValue, colIndex) => {
             const ref = `${excelColName(colIndex + 1)}${rowIndex + 1}`;
-            if (cellValue === null || cellValue === undefined || cellValue === "") {
+            if (
+              cellValue === null ||
+              cellValue === undefined ||
+              cellValue === ""
+            ) {
               return `<c r="${ref}"/>`;
             }
             const text = xmlEscape(xmlSafeText(cellValue));
@@ -1223,12 +2117,21 @@
       `</Types>`;
 
     const xlsxFiles = [
-      { name: "[Content_Types].xml", bytes: TEXT_ENCODER.encode(contentTypesXml) },
+      {
+        name: "[Content_Types].xml",
+        bytes: TEXT_ENCODER.encode(contentTypesXml),
+      },
       { name: "_rels/.rels", bytes: TEXT_ENCODER.encode(rootRelsXml) },
       { name: "xl/workbook.xml", bytes: TEXT_ENCODER.encode(workbookXml) },
-      { name: "xl/_rels/workbook.xml.rels", bytes: TEXT_ENCODER.encode(workbookRelsXml) },
+      {
+        name: "xl/_rels/workbook.xml.rels",
+        bytes: TEXT_ENCODER.encode(workbookRelsXml),
+      },
       { name: "xl/styles.xml", bytes: TEXT_ENCODER.encode(stylesXml) },
-      { name: "xl/worksheets/sheet1.xml", bytes: TEXT_ENCODER.encode(worksheetXml) },
+      {
+        name: "xl/worksheets/sheet1.xml",
+        bytes: TEXT_ENCODER.encode(worksheetXml),
+      },
     ];
 
     const blob = createZipBlob(xlsxFiles);
@@ -1253,19 +2156,29 @@
   function getRowsForPass(passIndex) {
     if (!preparedSession) return [];
     return preparedSession.rows
-      .filter((row) => row.phase === "main" && row.passIndex === passIndex)
+      .filter(
+        (row) =>
+          row.phase === "main" &&
+          row.passIndex === passIndex &&
+          isAcceptedRecoveryRow(row),
+      )
       .sort((a, b) => a.trialInPass - b.trialInPass);
   }
 
   function getNextPendingPass() {
     if (!preparedSession) return null;
-    return preparedSession.passes.find((pass) => getRowsForPass(pass.passIndex).length < pass.trials.length) || null;
+    return (
+      preparedSession.passes.find(
+        (pass) => getRowsForPass(pass.passIndex).length < pass.trials.length,
+      ) || null
+    );
   }
 
   function refreshStartButton() {
     if (!preparedSession) return;
+    const messages = getUiCopy().messages;
     if (!preparedSession.practiceCompleted) {
-      startPassBtn.textContent = "練習を開始";
+      startPassBtn.textContent = messages.startPracticeButton;
       startPassBtn.classList.remove("hidden");
       startPassBtn.disabled = false;
       return;
@@ -1279,8 +2192,8 @@
     const done = getRowsForPass(pass.passIndex).length;
     startPassBtn.textContent =
       done > 0
-        ? `${pass.label} を再開`
-        : `${pass.label} を開始`;
+        ? messages.resumePassButton(pass.label)
+        : messages.startPassButton(pass.label);
     startPassBtn.classList.remove("hidden");
     startPassBtn.disabled = false;
   }
@@ -1288,7 +2201,7 @@
   async function runPracticeFlow() {
     if (!preparedSession || isRunning) return;
     if (!volumeCheckCompleted) {
-      setStatus("先に音量チェックを行ってください。");
+      setStatus(getUiCopy().messages.volumeFirst);
       return;
     }
 
@@ -1298,7 +2211,7 @@
 
     try {
       enterExperimentScreen();
-      setStatus("練習を開始します。");
+      setStatus(getUiCopy().messages.practiceStartStatus);
       const practiceStats = await runPracticePass(preparedSession.practicePass);
       preparedSession.practiceCompleted = true;
       await mergeRecoverySessionMeta(preparedSession.sessionId, {
@@ -1308,18 +2221,23 @@
       });
 
       exitExperimentScreen();
-      const needsAttention = practiceStats.some((s) => s.levelCode === "too_quiet" || s.levelCode === "clip_risk");
-      setStatus(needsAttention
-        ? "練習完了。録音レベルに注意が出た項目があります。本番前にマイク位置を調整してください。"
-        : "練習完了。録音レベルは概ね良好です。本番へ進めます。"
+      const needsAttention = practiceStats.some(
+        (s) => s.levelCode === "too_quiet" || s.levelCode === "clip_risk",
       );
-      setLog("練習録音は最終ZIPには保存しません。");
-      showMessage("練習完了\n本番のPassへ進んでください");
+      setStatus(
+        needsAttention
+          ? getUiCopy().messages.practiceDoneNeedsAttention
+          : getUiCopy().messages.practiceDoneOk,
+      );
+      setLog(getUiCopy().messages.practiceLog);
+      showMessage(getUiCopy().messages.practiceDoneMessage);
       refreshStartButton();
     } catch (err) {
       console.error(err);
       exitExperimentScreen();
-      setStatus(`練習エラー: ${err.message}`);
+      setStatus(
+        getUiCopy().messages.practiceError(getUserFacingErrorMessage(err)),
+      );
       refreshStartButton();
       preloadBtn.disabled = false;
     } finally {
@@ -1330,7 +2248,7 @@
   async function recordOneTake({ pass, trial, takeNo, phaseStartPerf }) {
     const audio = preparedSession.audioMap.get(trial.audioPath);
     if (!audio) {
-      throw new Error(`音声アセットが見つかりません: ${trial.audioPath}`);
+      throw new Error(getUiCopy().messages.audioAssetMissing(trial.audioPath));
     }
 
     showStimulus(trial, pass, takeNo);
@@ -1352,7 +2270,11 @@
         };
         const onError = () => {
           cleanupPlayback();
-          reject(new Error(`音声再生に失敗しました: ${trial.audioPath}`));
+          reject(
+            new Error(
+              getUiCopy().messages.audioPlaybackFailed(trial.audioPath),
+            ),
+          );
         };
         cleanupPlayback = () => {
           audio.removeEventListener("ended", onEnded);
@@ -1385,10 +2307,12 @@
     }
 
     if (audioOnsetPerf === null || audioOnsetEpochMs === null) {
-      throw new Error(`音声再生に失敗しました: ${trial.audioPath}`);
+      throw new Error(
+        getUiCopy().messages.audioPlaybackFailed(trial.audioPath),
+      );
     }
     if (!rec || trialStartEpochMs === null) {
-      throw new Error("録音の開始または停止に失敗しました。");
+      throw new Error(getUiCopy().messages.recordingFailed);
     }
 
     return {
@@ -1405,10 +2329,12 @@
     const safePass = sanitizeName(pass.id);
     const safeWord = sanitizeName(trial.word);
     const outputPrefix = `${baseDir}/pass${pad2(pass.passIndex)}_${safePass}`;
-    return `${outputPrefix}/wav/` +
+    return (
+      `${outputPrefix}/wav/` +
       `${baseDir}_${nativeLanguage}_pass${pad2(pass.passIndex)}_${safePass}_` +
       `word${pad3(trial.trialInPass)}_${safeWord}_` +
-      `take${pad2(takeNo)}_trial${pad4(serialNo)}_talker_${trial.talker.id}.wav`;
+      `take${pad2(takeNo)}_trial${pad4(serialNo)}_talker_${trial.talker.id}.wav`
+    );
   }
 
   function buildRow({ pass, trial, takeNo, serialNo, recordingFile, timing }) {
@@ -1441,6 +2367,9 @@
       recordingPeak: timing.rec.peak,
       recordingPeakDbfs: timing.rec.peakDbfs,
       recordingLevel: timing.rec.levelCode,
+      recordingDecision: "pending",
+      accepted: false,
+      acceptedAt: "",
       trialStartEpochMs: timing.trialStartEpochMs,
       audioOnsetEpochMs: timing.audioOnsetEpochMs,
       audioOnsetFromPassMs: timing.audioOnsetFromPassMs,
@@ -1451,15 +2380,46 @@
   }
 
   async function recordTrialWithRetake({ pass, trial, phaseStartPerf }) {
-    const serialNo = ((pass.passIndex - 1) * trial.trialTotalInPass) + trial.trialInPass;
+    const serialNo =
+      (pass.passIndex - 1) * trial.trialTotalInPass + trial.trialInPass;
     let takeNo = 0;
 
     while (true) {
       takeNo += 1;
-      const timing = await recordOneTake({ pass, trial, takeNo, phaseStartPerf });
-      const recordingFile = buildRecordingFileName({ pass, trial, takeNo, serialNo });
-      const row = buildRow({ pass, trial, takeNo, serialNo, recordingFile, timing });
-      await saveRecoveryTrial(preparedSession.sessionId, row, timing.rec.wavBytes);
+      let timing = null;
+      try {
+        timing = await recordOneTake({ pass, trial, takeNo, phaseStartPerf });
+      } catch (err) {
+        console.error(err);
+        const message = getUiCopy().messages.trialRetryPrompt(
+          getUserFacingErrorMessage(err),
+        );
+        setStatus(
+          getUiCopy().messages.genericError(getUserFacingErrorMessage(err)),
+        );
+        await waitForRetryCurrentTrial(message);
+        takeNo -= 1;
+        continue;
+      }
+      const recordingFile = buildRecordingFileName({
+        pass,
+        trial,
+        takeNo,
+        serialNo,
+      });
+      const row = buildRow({
+        pass,
+        trial,
+        takeNo,
+        serialNo,
+        recordingFile,
+        timing,
+      });
+      await saveRecoveryTrial(
+        preparedSession.sessionId,
+        row,
+        timing.rec.wavBytes,
+      );
       await mergeRecoverySessionMeta(preparedSession.sessionId, {
         latestSerialNo: row.serialNo,
         latestPassIndex: pass.passIndex,
@@ -1467,20 +2427,63 @@
         phase: "main",
       });
 
-      const decision = await waitForTrialDecision(pass, trial, takeNo, timing.rec);
+      const decision = await waitForTrialDecision(
+        pass,
+        trial,
+        takeNo,
+        timing.rec,
+      );
       if (decision === "accept") {
+        row.recordingDecision = "accepted";
+        row.accepted = true;
+        row.acceptedAt = new Date().toISOString();
+        await saveRecoveryTrial(
+          preparedSession.sessionId,
+          row,
+          timing.rec.wavBytes,
+        );
         return row;
       }
+      row.recordingDecision = "retaken";
+      row.accepted = false;
+      await saveRecoveryTrial(
+        preparedSession.sessionId,
+        row,
+        timing.rec.wavBytes,
+      );
     }
   }
 
-  async function recordPracticeTrialWithRetake({ pass, trial, phaseStartPerf }) {
+  async function recordPracticeTrialWithRetake({
+    pass,
+    trial,
+    phaseStartPerf,
+  }) {
     let takeNo = 0;
 
     while (true) {
       takeNo += 1;
-      const timing = await recordOneTake({ pass, trial, takeNo, phaseStartPerf });
-      const decision = await waitForTrialDecision(pass, trial, takeNo, timing.rec);
+      let timing = null;
+      try {
+        timing = await recordOneTake({ pass, trial, takeNo, phaseStartPerf });
+      } catch (err) {
+        console.error(err);
+        const message = getUiCopy().messages.trialRetryPrompt(
+          getUserFacingErrorMessage(err),
+        );
+        setStatus(
+          getUiCopy().messages.genericError(getUserFacingErrorMessage(err)),
+        );
+        await waitForRetryCurrentTrial(message);
+        takeNo -= 1;
+        continue;
+      }
+      const decision = await waitForTrialDecision(
+        pass,
+        trial,
+        takeNo,
+        timing.rec,
+      );
       if (decision === "accept") {
         return timing.rec;
       }
@@ -1489,22 +2492,21 @@
 
   async function runPracticePass(pass) {
     const totalTrials = pass.trials.length;
-    const label = "Practice";
+    const label = pass.progressLabel || "Practice";
     let completed = 0;
 
-    await waitForSpace(
-      `${pass.label}\n\n` +
-      `${pass.instruction}\n\n` +
-      "録音レベルが小さすぎる、または大きすぎる場合は、マイクとの距離や声量を調整して録り直してください。\n" +
-      "スペースキーで練習を開始"
-    );
+    await waitForSpace(getUiCopy().messages.practiceIntro(pass));
 
     const phaseStartPerf = performance.now();
     const practiceStats = [];
 
     for (const trial of pass.trials) {
       showProgress(completed, totalTrials, label);
-      const rec = await recordPracticeTrialWithRetake({ pass, trial, phaseStartPerf });
+      const rec = await recordPracticeTrialWithRetake({
+        pass,
+        trial,
+        phaseStartPerf,
+      });
       practiceStats.push({
         word: trial.word,
         displayText: trial.displayText,
@@ -1521,17 +2523,14 @@
 
   async function runPass(pass) {
     const existingRows = getRowsForPass(pass.passIndex);
-    const completedByTrial = new Map(existingRows.map((row) => [row.trialInPass, row]));
+    const completedByTrial = new Map(
+      existingRows.map((row) => [row.trialInPass, row]),
+    );
     const totalTrials = pass.trials.length;
-    const label = `Pass ${pass.passIndex}`;
+    const label = pass.progressLabel || `Pass ${pass.passIndex}`;
     let completed = existingRows.length;
 
-    await waitForSpace(
-      `${pass.label}${completed > 0 ? "（続きから再開）" : ""}\n\n` +
-      `${pass.instruction}\n\n` +
-      "各単語の録音後に、録り直すか次へ進むかを選べます。\n" +
-      "スペースキーで開始"
-    );
+    await waitForSpace(getUiCopy().messages.passIntro(pass, completed));
 
     const phaseStartPerf = performance.now();
 
@@ -1548,7 +2547,9 @@
       showProgress(completed, totalTrials, label);
     }
 
-    return [...completedByTrial.values()].sort((a, b) => a.trialInPass - b.trialInPass);
+    return [...completedByTrial.values()].sort(
+      (a, b) => a.trialInPass - b.trialInPass,
+    );
   }
 
   async function buildPassZip(pass) {
@@ -1561,7 +2562,10 @@
     });
     const rows = artifacts.rows.sort((a, b) => a.trialInPass - b.trialInPass);
     const logTable = buildLogTable(rows);
-    const logBytes = await buildXlsxBytes(logTable, `pass${pad2(pass.passIndex)}_log`);
+    const logBytes = await buildXlsxBytes(
+      logTable,
+      `pass${pad2(pass.passIndex)}_log`,
+    );
     const summary = {
       participant_id: preparedSession.participantId,
       native_language: preparedSession.nativeLanguage,
@@ -1606,25 +2610,32 @@
     const passes = buildRecordingPasses(counterbalance, nativeLanguageId);
     const audioPaths = collectAudioPaths([practicePass, ...passes]);
     const sessionId = getRecoverySessionId(participantId);
-    const plannedTrials = passes.reduce((acc, pass) => acc + pass.trials.length, 0);
+    const plannedTrials = passes.reduce(
+      (acc, pass) => acc + pass.trials.length,
+      0,
+    );
 
     let recoverySnapshot = await loadRecoverySnapshot(sessionId);
     const hasIncompatibleDraft =
       recoverySnapshot.meta &&
-      (
-        recoverySnapshot.meta.participantId !== participantId ||
+      (recoverySnapshot.meta.participantId !== participantId ||
         recoverySnapshot.meta.nativeLanguage !== nativeLanguageId ||
-        recoverySnapshot.meta.counterbalanceIndex !== counterbalance.conditionIndex ||
-        recoverySnapshot.meta.experimentVersion !== EXPERIMENT_VERSION
-      );
+        recoverySnapshot.meta.counterbalanceIndex !==
+          counterbalance.conditionIndex ||
+        recoverySnapshot.meta.experimentVersion !== EXPERIMENT_VERSION);
     const hasCompletedRowsWithoutMeta =
-      !recoverySnapshot.meta && (recoverySnapshot.rows?.length || 0) >= plannedTrials;
-    if (hasIncompatibleDraft || recoverySnapshot.meta?.allPassesCompleted || hasCompletedRowsWithoutMeta) {
+      !recoverySnapshot.meta &&
+      (recoverySnapshot.rows?.length || 0) >= plannedTrials;
+    if (
+      hasIncompatibleDraft ||
+      recoverySnapshot.meta?.allPassesCompleted ||
+      hasCompletedRowsWithoutMeta
+    ) {
       await clearRecoverySession(sessionId);
       recoverySnapshot = { meta: null, trialRecords: [], rows: [] };
     }
 
-    setStatus("マイクの許可を確認しています...");
+    setStatus(getUiCopy().messages.checkingMic);
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
@@ -1637,10 +2648,14 @@
     let recorder = null;
     try {
       recorder = new WavRecorder(stream);
-      setStatus("音声ファイルを読み込んでいます...");
+      setStatus(getUiCopy().messages.loadingAudio);
       const audioMap = await preloadAudio(audioPaths);
-      const volumeCheckDone = Boolean(recoverySnapshot.meta?.volumeCheckCompleted);
-      const practiceCompleted = Boolean(recoverySnapshot.meta?.practiceCompleted);
+      const volumeCheckDone = Boolean(
+        recoverySnapshot.meta?.volumeCheckCompleted,
+      );
+      const practiceCompleted = Boolean(
+        recoverySnapshot.meta?.practiceCompleted,
+      );
 
       await mergeRecoverySessionMeta(sessionId, {
         participantId,
@@ -1682,18 +2697,18 @@
 
   async function runVolumeCheck() {
     if (!preparedSession) {
-      setStatus("先に準備を実行してください。");
+      setStatus(getUiCopy().messages.prepareFirst);
       return;
     }
     const samplePath = PRACTICE_ITEMS[0].audioPath;
     const audio = preparedSession.audioMap.get(samplePath);
     if (!audio) {
-      throw new Error(`音量チェック音声が見つかりません: ${samplePath}`);
+      throw new Error(getUiCopy().messages.volumeAudioMissing(samplePath));
     }
 
     volumeCheckBtn.disabled = true;
-    showMessage("音量チェック中です");
-    setStatus("音量チェック音声を再生しています...");
+    showMessage(getUiCopy().messages.volumeCheckMessage);
+    setStatus(getUiCopy().messages.volumeCheckStatus);
     startMicMeter(preparedSession.recorder);
 
     audio.pause();
@@ -1710,7 +2725,7 @@
       };
       const onError = () => {
         cleanup();
-        reject(new Error("音量チェック音声の再生に失敗しました。"));
+        reject(new Error(getUiCopy().messages.volumePlaybackFailed));
       };
       audio.addEventListener("ended", onEnded);
       audio.addEventListener("error", onError);
@@ -1731,17 +2746,17 @@
       volumeCheckCompleted: true,
       phase: "volume_checked",
     });
-    volumeCheckBtn.textContent = "音量チェックを再生（再確認）";
+    volumeCheckBtn.textContent = getStaticCopy().volumeCheckAgainButton;
     volumeCheckBtn.disabled = false;
     refreshStartButton();
-    setStatus("音量チェック完了。録音を開始できます。");
-    showMessage("音量OKなら録音を開始してください");
+    setStatus(getUiCopy().messages.volumeDoneStatus);
+    showMessage(getUiCopy().messages.volumeDoneMessage);
   }
 
   async function runPassFlow() {
     if (!preparedSession || isRunning) return;
     if (!volumeCheckCompleted) {
-      setStatus("先に音量チェックを行ってください。");
+      setStatus(getUiCopy().messages.volumeFirst);
       return;
     }
     if (!preparedSession.practiceCompleted) {
@@ -1751,7 +2766,7 @@
 
     const pass = getNextPendingPass();
     if (!pass) {
-      setStatus("すべての録音は完了しています。");
+      setStatus(getUiCopy().messages.allDoneStatus);
       return;
     }
 
@@ -1761,13 +2776,19 @@
 
     try {
       enterExperimentScreen();
-      setStatus(`${pass.label} を開始します。`);
+      setStatus(getUiCopy().messages.passStartStatus(pass.label));
       await runPass(pass);
       await refreshRecoveredRows();
 
       const { zipBlob, zipName, rows } = await buildPassZip(pass);
       lastZipBlob = zipBlob;
       lastZipName = zipName;
+      await saveRecoveryZip(
+        preparedSession.sessionId,
+        pass.passIndex,
+        zipName,
+        zipBlob,
+      );
       triggerDownload(zipBlob, zipName);
 
       await mergeRecoverySessionMeta(preparedSession.sessionId, {
@@ -1782,14 +2803,16 @@
       redownloadZipBtn.disabled = false;
 
       if (nextPass) {
-        setStatus(`${pass.label} 完了。${rows.length}個のWAVをZIPで自動ダウンロードしました。次のリピートへ進めます。`);
-        setLog(`保存: ${zipName}`);
-        showMessage(`${pass.label} 完了\nZIPをダウンロードしました\n次のリピートへ進んでください`);
+        setStatus(
+          getUiCopy().messages.passDoneNextStatus(pass.label, rows.length),
+        );
+        setLog(getUiCopy().messages.saved(zipName));
+        showMessage(getUiCopy().messages.passDoneNextMessage(pass.label));
         refreshStartButton();
       } else {
-        setStatus(`${pass.label} 完了。最後のZIPを自動ダウンロードしました。`);
-        setLog(`保存: ${zipName}`);
-        showMessage("録音はすべて終了です\nご協力ありがとうございました");
+        setStatus(getUiCopy().messages.passDoneFinalStatus(pass.label));
+        setLog(getUiCopy().messages.saved(zipName));
+        showMessage(getUiCopy().messages.allDoneMessage);
         startPassBtn.classList.add("hidden");
         startPassBtn.disabled = true;
         await mergeRecoverySessionMeta(preparedSession.sessionId, {
@@ -1797,14 +2820,19 @@
           phase: "completed",
         });
         await preparedSession.recorder.dispose();
-        await clearRecoverySession(preparedSession.sessionId);
+        await clearRecoverySession(preparedSession.sessionId, {
+          preserveZips: true,
+        });
         preparedSession = null;
         preloadBtn.disabled = false;
+        nativeLanguageSelect.disabled = false;
       }
     } catch (err) {
       console.error(err);
       exitExperimentScreen();
-      setStatus(`エラー: ${err.message}`);
+      setStatus(
+        getUiCopy().messages.genericError(getUserFacingErrorMessage(err)),
+      );
       refreshStartButton();
       preloadBtn.disabled = false;
     } finally {
@@ -1812,33 +2840,42 @@
     }
   }
 
+  setUiLanguage("en");
+
+  nativeLanguageSelect.addEventListener("change", () => {
+    if (preparedSession) return;
+    setUiLanguageForNative(nativeLanguageSelect.value);
+  });
+
   preloadBtn.addEventListener("click", async () => {
     const participantId = participantInput.value.trim();
     const nativeLanguageId = nativeLanguageSelect.value;
+    setUiLanguageForNative(nativeLanguageId);
     if (!participantId) {
-      setStatus("参加者IDを入力してください。");
+      setStatus(getUiCopy().messages.missingParticipant);
       return;
     }
     if (!NATIVE_LANGUAGES[nativeLanguageId]) {
-      setStatus("母語を選択してください。");
+      setStatus(getUiCopy().messages.selectLanguage);
       return;
     }
     if (!isChrome()) {
-      setStatus("Chrome で実施してください。Chrome以外では開始できません。");
+      setStatus(getUiCopy().messages.chromeOnly);
       return;
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setStatus("この環境ではマイク録音に対応していません。");
+      setStatus(getUiCopy().messages.micUnsupported);
       return;
     }
 
     preloadBtn.disabled = true;
+    nativeLanguageSelect.disabled = true;
     stopMicMeter();
     volumeCheckCompleted = false;
     lastZipBlob = null;
     lastZipName = "";
     volumeCheckBtn.classList.add("hidden");
-    volumeCheckBtn.textContent = "音量チェックを再生";
+    volumeCheckBtn.textContent = getStaticCopy().volumeCheckButton;
     volumeCheckBtn.disabled = true;
     startPassBtn.classList.add("hidden");
     startPassBtn.disabled = true;
@@ -1848,30 +2885,48 @@
 
     try {
       preparedSession = await prepareSession(participantId, nativeLanguageId);
-      const plannedTrials = preparedSession.passes.reduce((acc, pass) => acc + pass.trials.length, 0);
+      const plannedTrials = preparedSession.passes.reduce(
+        (acc, pass) => acc + pass.trials.length,
+        0,
+      );
       const completedTrials = preparedSession.rows.length;
       volumeCheckCompleted = Boolean(preparedSession.volumeCheckCompleted);
+      const latestZip = await getLatestRecoveryZip(preparedSession.sessionId);
+      if (latestZip) {
+        lastZipBlob = latestZip.zipBlob;
+        lastZipName = latestZip.zipName;
+        redownloadZipBtn.classList.remove("hidden");
+        redownloadZipBtn.disabled = false;
+      }
 
-      setStatus("準備完了。");
+      setStatus(getUiCopy().messages.prepared);
       setLog(
-        `母語: ${NATIVE_LANGUAGES[nativeLanguageId].label} / ` +
-        `予定: ${preparedSession.passes.length} passes, ${plannedTrials} recordings`
+        getUiCopy().messages.planLog({
+          nativeLanguage: NATIVE_LANGUAGES[nativeLanguageId].label,
+          passCount: preparedSession.passes.length,
+          plannedTrials,
+        }),
       );
 
       if (!volumeCheckCompleted) {
-        showMessage("音量チェックを再生してください");
-        setStatus("準備完了。まず音量チェックを行ってください。");
+        showMessage(getUiCopy().messages.playVolumeCheckMessage);
+        setStatus(getUiCopy().messages.preparedDoVolume);
         volumeCheckBtn.classList.remove("hidden");
         volumeCheckBtn.disabled = false;
       } else {
-        showMessage("前回の続きがあります\n録音を再開できます");
-        setStatus(`復旧データを検出: ${completedTrials}/${plannedTrials}`);
+        showMessage(getUiCopy().messages.recoveryMessage);
+        setStatus(
+          getUiCopy().messages.recoveryStatus(completedTrials, plannedTrials),
+        );
         refreshStartButton();
       }
     } catch (err) {
       console.error(err);
-      setStatus(`準備エラー: ${err.message}`);
+      setStatus(
+        getUiCopy().messages.prepareError(getUserFacingErrorMessage(err)),
+      );
       preloadBtn.disabled = false;
+      nativeLanguageSelect.disabled = false;
       volumeCheckBtn.classList.add("hidden");
       if (preparedSession && preparedSession.recorder) {
         await preparedSession.recorder.dispose();
@@ -1885,7 +2940,9 @@
       await runVolumeCheck();
     } catch (err) {
       console.error(err);
-      setStatus(`音量チェックエラー: ${err.message}`);
+      setStatus(
+        getUiCopy().messages.volumeError(getUserFacingErrorMessage(err)),
+      );
       volumeCheckBtn.disabled = false;
     }
   });
@@ -1894,15 +2951,16 @@
 
   redownloadZipBtn.addEventListener("click", () => {
     if (!lastZipBlob || !lastZipName) {
-      setStatus("再ダウンロード可能なZIPがありません。");
+      setStatus(getUiCopy().messages.redownloadUnavailable);
       return;
     }
     triggerDownload(lastZipBlob, lastZipName);
-    setStatus(`再ダウンロードしました: ${lastZipName}`);
+    setStatus(getUiCopy().messages.redownloaded(lastZipName));
   });
 
   document.addEventListener("keydown", (ev) => {
     if (isRunning) return;
+    if (isEditableTarget(ev.target)) return;
     if (ev.code !== "Space" && ev.key !== " ") return;
     if (startPassBtn.classList.contains("hidden")) return;
     if (startPassBtn.disabled) return;
