@@ -3,14 +3,19 @@
   const RECORDING_BEEP_MS = 180;
   const RECORDING_BEEP_HZ = 1000;
   const RECORDING_BEEP_GAIN = 0.06;
-  const EXPERIMENT_VERSION = "learning_phase_v5.0.1";
-  const EXPERIMENT_BUILD_DATE = "2026-04-15";
+  const EXPERIMENT_VERSION = "learning_phase_v5.1.0";
+  const EXPERIMENT_BUILD_DATE = "2026-04-21";
   const RECOVERY_DB_NAME = "accentedness_learning_recovery";
   const RECOVERY_DB_VERSION = 2;
   const RECOVERY_SESSIONS_STORE = "sessions";
   const RECOVERY_TRIALS_STORE = "trials";
   const RECOVERY_ZIPS_STORE = "zips";
   const RECOVERY_BY_SESSION_INDEX = "by_session";
+  const STIMULUS_FONT_STEP_PX = 2;
+  const STIMULUS_MIN_FONT_PX = 30;
+  const STIMULUS_HINT_FONT_STEP_PX = 1;
+  const STIMULUS_HINT_MIN_FONT_PX = 13;
+  const STIMULUS_META_CSV_PATH = "../Stimuli/audio_en_6voices/audio_meta.csv";
 
   const NATIVE_LANGUAGES = {
     english: {
@@ -48,9 +53,10 @@
       summaryItems: [
         "Google Chrome で実施してください。 / Please use Google Chrome.",
         "本番開始前に、音量チェックと練習録音を行います。 / Before the main recording, you will complete a volume check and practice recording.",
+        "練習終了後、ダウンロード確認のために練習ZIPも自動でダウンロードします。 / After practice, a practice ZIP is downloaded automatically so you can confirm downloads work.",
         "本番は50語です。Japanese / Chinese 母語話者は3回、English 母語話者は2回リピートします。 / The main task has 50 words. Japanese/Chinese speakers repeat them 3 times; English speakers repeat them 2 times.",
         "録音後に「もう一度録音する」または「次へ」を選べます。 / After each recording, choose retake or next.",
-        "各Passの50語が終わるたびに、そのPassのWAVをZIPで自動ダウンロードします。 / After each pass, the WAV files are downloaded as a ZIP.",
+        "各Passの50語が終わるたびに、そのPassのWAVとログを含むZIPを自動ダウンロードします。 / After each pass, a ZIP containing WAV files and logs is downloaded automatically.",
       ],
       chromeWarning:
         "ブラウザがChrome以外の場合は開始できません。 / This task can only start in Chrome.",
@@ -85,13 +91,14 @@
       summaryItems: [
         "グーグル Chrome で実施してください（マイク録音と圧縮ファイル出力のため）。",
         "本番開始前に、音量チェックと練習録音を行います。",
+        "練習終了後、ダウンロード確認のために練習用の圧縮ファイルも自動でダウンロードします。",
         "本番は50語です。日本語・中国語母語話者は3回、英語母語話者は2回リピートします。",
         "1回目は自然な英語、2回目は条件に応じた英語、3回目は自然な英語と母語訛りの中間です。",
         "英語母語話者の2回目は、自然な英語を保ったまま、少しゆっくり・明瞭に発話します。",
         "練習では、コーヒー、ピザ、ソファ、チョコレートを使い、録音レベルと録り直し操作を確認します。",
         "各録音は「刺激音声の再生後にビープ音が鳴り、ビープ音直後から4秒録音」で自動終了します。",
         "録音後に「もう一度録音する」または「次へ」を選べます。",
-        "各回の50語が終わるたびに、その回の音声ファイルを圧縮ファイルとして自動ダウンロードします。",
+        "各回の50語が終わるたびに、その回のWAVとログを含む圧縮ファイルを自動ダウンロードします。",
       ],
       chromeWarning: "ブラウザがChrome以外の場合は開始できません。",
       preloadButton: "準備（Chrome確認・マイク許可・音声読み込み）",
@@ -134,7 +141,7 @@
         practiceShort: "練習",
         practiceInstruction: (nativeLanguage) =>
           `練習では、${nativeLanguage.labelJa}で見慣れた借用語を使って、音量と録り直し操作を確認します。` +
-          "ここでの録音は最終圧縮ファイルには保存されません。声の大きさとマイクまでの距離をここで調整してください。",
+          "ここでの録音は最終圧縮ファイルには保存されませんが、ダウンロード確認のための練習用圧縮ファイルは別に出力されます。声の大きさとマイクまでの距離をここで調整してください。",
       },
       messages: {
         beforeUnload: "このページを離れると実験が中断されます。",
@@ -178,8 +185,10 @@
         practiceDoneNeedsAttention:
           "練習完了。録音レベルに注意が出た項目があります。本番前にマイク位置を調整してください。",
         practiceDoneOk: "練習完了。録音レベルは概ね良好です。本番へ進めます。",
-        practiceLog: "練習録音は最終圧縮ファイルには保存しません。",
-        practiceDoneMessage: "練習完了\n本番の録音へ進んでください",
+        practiceLog:
+          "練習録音は最終圧縮ファイルには保存しません。確認用の練習圧縮ファイルをダウンロードしました。",
+        practiceDoneMessage:
+          "練習完了\n確認用の練習圧縮ファイルをダウンロードしました\n本番の録音へ進んでください",
         practiceError: (message) => `練習エラー: ${message}`,
         audioAssetMissing: (path) => `音声アセットが見つかりません: ${path}`,
         audioPlaybackFailed: (path) => `音声再生に失敗しました: ${path}`,
@@ -207,11 +216,13 @@
         allDoneStatus: "すべての録音は完了しています。",
         passStartStatus: (label) => `${label} を開始します。`,
         passDoneNextStatus: (label, count) =>
-          `${label} 完了。${count}個の音声ファイルを圧縮ファイルとして自動ダウンロードしました。次のリピートへ進めます。`,
+          `${label} 完了。${count}個のWAVとログを含む圧縮ファイルを自動ダウンロードしました。次のリピートへ進めます。`,
         passDoneNextMessage: (label) =>
           `${label} 完了\n圧縮ファイルをダウンロードしました\n次のリピートへ進んでください`,
         passDoneFinalStatus: (label) =>
-          `${label} 完了。最後の圧縮ファイルを自動ダウンロードしました。`,
+          `${label} 完了。最後のWAVとログを含む圧縮ファイルを自動ダウンロードしました。`,
+        audioMetaLoadFailed: (path) =>
+          `刺激メタデータを読み込めません: ${path}`,
         allDoneMessage: "録音はすべて終了です\nご協力ありがとうございました",
         saved: (name) => `保存: ${name}`,
         genericError: (message) => `エラー: ${message}`,
@@ -262,12 +273,13 @@
       summaryItems: [
         "Please use Google Chrome because this task records audio and downloads ZIP files.",
         "Before the main recording, you will complete a volume check and practice recording.",
+        "After practice, a practice ZIP is downloaded automatically so you can confirm that downloads work.",
         "The main task has 50 words. English speakers complete 2 passes; Japanese and Chinese speakers complete 3 passes.",
         "Pass 1 uses your natural English. Pass 2 for English speakers uses slower, clearer English.",
         "Practice uses coffee, pizza, sofa, and chocolate to check recording volume and the retake controls.",
         "Each recording starts after the stimulus audio and a beep, then ends automatically after 4 seconds.",
         "After each recording, choose Next or Retake.",
-        "After each pass, the WAV files for that pass are downloaded automatically as a ZIP file.",
+        "After each pass, a ZIP containing the WAV files and logs for that pass is downloaded automatically.",
       ],
       chromeWarning: "This task can only start in Google Chrome.",
       preloadButton: "Prepare (Chrome check, mic permission, audio preload)",
@@ -310,7 +322,7 @@
         practiceShort: "practice",
         practiceInstruction: () =>
           "In practice, you will use familiar loanwords to check the volume and retake controls. " +
-          "These recordings are not saved in the final ZIP. Use this step to adjust your speaking volume and distance from the microphone.",
+          "These recordings are not saved in the final ZIP, but a separate practice ZIP is downloaded so you can confirm downloads work. Use this step to adjust your speaking volume and distance from the microphone.",
       },
       messages: {
         beforeUnload: "Leaving this page will interrupt the experiment.",
@@ -357,8 +369,10 @@
           "Practice complete. Some recordings need attention; adjust your microphone position before the main task.",
         practiceDoneOk:
           "Practice complete. The recording level looks good overall. You can continue to the main task.",
-        practiceLog: "Practice recordings are not saved in the final ZIP.",
-        practiceDoneMessage: "Practice complete\nContinue to the main pass",
+        practiceLog:
+          "Practice recordings are not saved in the final ZIP. A separate practice ZIP has been downloaded.",
+        practiceDoneMessage:
+          "Practice complete\nThe practice ZIP has been downloaded\nContinue to the main pass",
         practiceError: (message) => `Practice error: ${message}`,
         audioAssetMissing: (path) => `Audio asset not found: ${path}`,
         audioPlaybackFailed: (path) => `Audio playback failed: ${path}`,
@@ -386,11 +400,13 @@
         allDoneStatus: "All recordings are complete.",
         passStartStatus: (label) => `Starting ${label}.`,
         passDoneNextStatus: (label, count) =>
-          `${label} complete. Downloaded ${count} WAV files as a ZIP. You can continue to the next pass.`,
+          `${label} complete. Downloaded a ZIP containing ${count} WAV files and logs. You can continue to the next pass.`,
         passDoneNextMessage: (label) =>
           `${label} complete\nThe ZIP file has been downloaded\nContinue to the next pass`,
         passDoneFinalStatus: (label) =>
-          `${label} complete. The final ZIP file has been downloaded.`,
+          `${label} complete. The final ZIP containing WAV files and logs has been downloaded.`,
+        audioMetaLoadFailed: (path) =>
+          `Stimulus metadata could not be loaded: ${path}`,
         allDoneMessage: "All recordings are complete\nThank you",
         saved: (name) => `Saved: ${name}`,
         genericError: (message) => `Error: ${message}`,
@@ -445,12 +461,13 @@
       summaryItems: [
         "请使用谷歌 Chrome，因为本任务需要麦克风录音和压缩文件下载。",
         "正式录音前，请先完成音量检查和练习录音。",
+        "练习结束后，会自动下载一个练习压缩文件，以确认下载功能正常。",
         "正式任务包含 50 个单词。英语母语者完成 2 轮；日语和中文母语者完成 3 轮。",
         "第 1 轮使用自然英语。第 2 轮使用带有母语口音的英语。第 3 轮介于两者之间。",
         "练习使用咖啡、披萨、沙发和巧克力，用来确认录音音量和重录操作。",
         "每次录音会在刺激音频和提示音之后开始，并在 4 秒后自动结束。",
         "每次录音后，请选择下一步或重录。",
-        "每轮结束后，该轮的音频文件会自动打包为压缩文件下载。",
+        "每轮结束后，会自动下载包含该轮 WAV 和日志的压缩文件。",
       ],
       chromeWarning: "本任务只能在 Google Chrome 中开始。",
       preloadButton: "准备（Chrome 检查、麦克风权限、音频加载）",
@@ -493,7 +510,7 @@
         practiceShort: "练习",
         practiceInstruction: () =>
           "练习中会使用熟悉的外来词来确认音量和重录操作。" +
-          "这些录音不会保存在最终压缩文件中。请在这里调整说话音量和与麦克风的距离。",
+          "这些录音不会保存在最终压缩文件中，但会另外下载一个练习压缩文件来确认下载功能。请在这里调整说话音量和与麦克风的距离。",
       },
       messages: {
         beforeUnload: "离开此页面会中断实验。",
@@ -535,8 +552,10 @@
         practiceDoneNeedsAttention:
           "练习完成。部分录音音量需要注意；正式录音前请调整麦克风位置。",
         practiceDoneOk: "练习完成。录音音量整体良好，可以进入正式任务。",
-        practiceLog: "练习录音不会保存在最终压缩文件中。",
-        practiceDoneMessage: "练习完成\n请进入正式录音轮次",
+        practiceLog:
+          "练习录音不会保存在最终压缩文件中。已下载单独的练习压缩文件。",
+        practiceDoneMessage:
+          "练习完成\n练习压缩文件已下载\n请进入正式录音轮次",
         practiceError: (message) => `练习错误：${message}`,
         audioAssetMissing: (path) => `找不到音频文件：${path}`,
         audioPlaybackFailed: (path) => `音频播放失败：${path}`,
@@ -563,11 +582,12 @@
         allDoneStatus: "所有录音都已完成。",
         passStartStatus: (label) => `正在开始 ${label}。`,
         passDoneNextStatus: (label, count) =>
-          `${label} 完成。已将 ${count} 个音频文件自动下载为压缩文件。可以进入下一轮。`,
+          `${label} 完成。已自动下载包含 ${count} 个 WAV 和日志的压缩文件。可以进入下一轮。`,
         passDoneNextMessage: (label) =>
           `${label} 完成\n压缩文件已下载\n请进入下一轮`,
         passDoneFinalStatus: (label) =>
-          `${label} 完成。最终压缩文件已自动下载。`,
+          `${label} 完成。包含 WAV 和日志的最终压缩文件已自动下载。`,
+        audioMetaLoadFailed: (path) => `无法加载刺激元数据：${path}`,
         allDoneMessage: "所有录音都已结束\n谢谢配合",
         saved: (name) => `已保存：${name}`,
         genericError: (message) => `错误：${message}`,
@@ -639,56 +659,56 @@
   ];
 
   const STIMULI = [
-    { word: "icicle", jp: "つらら", list: 1 },
-    { word: "thermometer", jp: "温度計", list: 1 },
-    { word: "abacus", jp: "そろばん", list: 1 },
-    { word: "acorn", jp: "どんぐり", list: 1 },
-    { word: "binoculars", jp: "双眼鏡", list: 1 },
-    { word: "persimmon", jp: "柿", list: 1 },
-    { word: "mantis", jp: "カマキリ", list: 1 },
-    { word: "carousel", jp: "メリーゴーラウンド", list: 1 },
-    { word: "syringe", jp: "注射器", list: 1 },
-    { word: "burdock", jp: "ごぼう", list: 1 },
-    { word: "cobweb", jp: "クモの巣", list: 1 },
-    { word: "faucet", jp: "蛇口", list: 1 },
-    { word: "tadpole", jp: "オタマジャクシ", list: 1 },
-    { word: "tweezers", jp: "ピンセット", list: 1 },
-    { word: "rickshaw", jp: "人力車", list: 1 },
-    { word: "abalone", jp: "アワビ", list: 1 },
-    { word: "raccoon", jp: "アライグマ", list: 1 },
-    { word: "ladle", jp: "おたま", list: 1 },
-    { word: "xylophone", jp: "木琴", list: 1 },
-    { word: "protractor", jp: "分度器", list: 1 },
-    { word: "toupee", jp: "かつら", list: 1 },
-    { word: "treadmill", jp: "ランニングマシン", list: 1 },
-    { word: "cicada", jp: "セミ", list: 1 },
-    { word: "lawnmower", jp: "芝刈り機", list: 1 },
-    { word: "burglar", jp: "泥棒", list: 1 },
-    { word: "toboggan", jp: "そり", list: 2 },
-    { word: "porcupine", jp: "ヤマアラシ", list: 2 },
-    { word: "razor", jp: "カミソリ", list: 2 },
-    { word: "cocoon", jp: "繭、かいこ", list: 2 },
-    { word: "wardrobe", jp: "タンス", list: 2 },
-    { word: "detergent", jp: "洗剤", list: 2 },
-    { word: "parakeet", jp: "インコ", list: 2 },
-    { word: "scallop", jp: "ホタテ", list: 2 },
-    { word: "walrus", jp: "セイウチ", list: 2 },
-    { word: "podium", jp: "表彰台", list: 2 },
-    { word: "casket", jp: "棺", list: 2 },
-    { word: "pacifier", jp: "おしゃぶり", list: 2 },
-    { word: "scalpel", jp: "メス", list: 2 },
-    { word: "spatula", jp: "フライ返し", list: 2 },
-    { word: "scapula", jp: "肩甲骨", list: 2 },
-    { word: "pupa", jp: "蛹", list: 2 },
-    { word: "nostril", jp: "鼻の穴", list: 2 },
-    { word: "labyrinth", jp: "迷宮", list: 2 },
-    { word: "loquat", jp: "ビワ", list: 2 },
-    { word: "pylon", jp: "鉄塔", list: 2 },
-    { word: "lotus", jp: "ハス", list: 2 },
-    { word: "capelin", jp: "ししゃも", list: 2 },
-    { word: "strainer", jp: "ざる", list: 2 },
-    { word: "chisel", jp: "彫刻刀", list: 2 },
-    { word: "catapult", jp: "投石機", list: 2 },
+    { word: "icicle", jp: "つらら", zh: "冰柱", list: 1 },
+    { word: "thermometer", jp: "温度計", zh: "温度计", list: 1 },
+    { word: "abacus", jp: "そろばん", zh: "算盘", list: 1 },
+    { word: "acorn", jp: "どんぐり", zh: "橡子", list: 1 },
+    { word: "binoculars", jp: "双眼鏡", zh: "双筒望远镜", list: 1 },
+    { word: "persimmon", jp: "柿", zh: "柿子", list: 1 },
+    { word: "mantis", jp: "カマキリ", zh: "螳螂", list: 1 },
+    { word: "carousel", jp: "メリーゴーラウンド", zh: "旋转木马", list: 1 },
+    { word: "syringe", jp: "注射器", zh: "注射器", list: 1 },
+    { word: "burdock", jp: "ごぼう", zh: "牛蒡", list: 1 },
+    { word: "cobweb", jp: "クモの巣", zh: "蜘蛛网", list: 1 },
+    { word: "faucet", jp: "蛇口", zh: "水龙头", list: 1 },
+    { word: "tadpole", jp: "オタマジャクシ", zh: "蝌蚪", list: 1 },
+    { word: "tweezers", jp: "ピンセット", zh: "镊子", list: 1 },
+    { word: "rickshaw", jp: "人力車", zh: "人力车", list: 1 },
+    { word: "abalone", jp: "アワビ", zh: "鲍鱼", list: 1 },
+    { word: "raccoon", jp: "アライグマ", zh: "浣熊", list: 1 },
+    { word: "ladle", jp: "おたま", zh: "长柄勺", list: 1 },
+    { word: "xylophone", jp: "木琴", zh: "木琴", list: 1 },
+    { word: "protractor", jp: "分度器", zh: "量角器", list: 1 },
+    { word: "toupee", jp: "かつら", zh: "假发", list: 1 },
+    { word: "treadmill", jp: "ランニングマシン", zh: "跑步机", list: 1 },
+    { word: "cicada", jp: "セミ", zh: "蝉", list: 1 },
+    { word: "lawnmower", jp: "芝刈り機", zh: "割草机", list: 1 },
+    { word: "burglar", jp: "泥棒", zh: "窃贼", list: 1 },
+    { word: "toboggan", jp: "そり", zh: "雪橇", list: 2 },
+    { word: "porcupine", jp: "ヤマアラシ", zh: "豪猪", list: 2 },
+    { word: "razor", jp: "カミソリ", zh: "剃刀", list: 2 },
+    { word: "cocoon", jp: "繭、かいこ", zh: "茧", list: 2 },
+    { word: "wardrobe", jp: "タンス", zh: "衣柜", list: 2 },
+    { word: "detergent", jp: "洗剤", zh: "洗涤剂", list: 2 },
+    { word: "parakeet", jp: "インコ", zh: "长尾鹦鹉", list: 2 },
+    { word: "scallop", jp: "ホタテ", zh: "扇贝", list: 2 },
+    { word: "walrus", jp: "セイウチ", zh: "海象", list: 2 },
+    { word: "podium", jp: "表彰台", zh: "领奖台", list: 2 },
+    { word: "casket", jp: "棺", zh: "棺材", list: 2 },
+    { word: "pacifier", jp: "おしゃぶり", zh: "安抚奶嘴", list: 2 },
+    { word: "scalpel", jp: "メス", zh: "手术刀", list: 2 },
+    { word: "spatula", jp: "フライ返し", zh: "锅铲", list: 2 },
+    { word: "scapula", jp: "肩甲骨", zh: "肩胛骨", list: 2 },
+    { word: "pupa", jp: "蛹", zh: "蛹", list: 2 },
+    { word: "nostril", jp: "鼻の穴", zh: "鼻孔", list: 2 },
+    { word: "labyrinth", jp: "迷宮", zh: "迷宫", list: 2 },
+    { word: "loquat", jp: "ビワ", zh: "枇杷", list: 2 },
+    { word: "pylon", jp: "鉄塔", zh: "铁塔", list: 2 },
+    { word: "lotus", jp: "ハス", zh: "莲花", list: 2 },
+    { word: "capelin", jp: "ししゃも", zh: "多春鱼", list: 2 },
+    { word: "strainer", jp: "ざる", zh: "滤网", list: 2 },
+    { word: "chisel", jp: "彫刻刀", zh: "凿子", list: 2 },
+    { word: "catapult", jp: "投石機", zh: "投石机", list: 2 },
   ];
 
   const LIST1 = STIMULI.filter((s) => s.list === 1);
@@ -754,6 +774,13 @@
     return "en";
   }
 
+  function localizedLanguageLabel(nativeLanguageId, languageId = activeUiLanguage) {
+    const language = NATIVE_LANGUAGES[nativeLanguageId] || NATIVE_LANGUAGES.english;
+    if (languageId === "ja") return language.labelJa;
+    if (languageId === "zh") return language.labelZh;
+    return language.label;
+  }
+
   function getUiCopy() {
     const copy = UI_COPY[activeUiLanguage];
     return copy && copy.messages ? copy : UI_COPY.en;
@@ -812,6 +839,100 @@
 
   function setUiLanguageForNative(nativeLanguageId) {
     setUiLanguage(uiLanguageForNative(nativeLanguageId));
+  }
+
+  function parseCsvRows(text) {
+    const rows = [];
+    let row = [];
+    let field = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') {
+            field += '"';
+            i += 1;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          field += ch;
+        }
+        continue;
+      }
+
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        row.push(field);
+        field = "";
+      } else if (ch === "\n") {
+        row.push(field);
+        rows.push(row);
+        row = [];
+        field = "";
+      } else if (ch !== "\r") {
+        field += ch;
+      }
+    }
+
+    if (field || row.length) {
+      row.push(field);
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  async function loadAudioMetaIndex(path) {
+    const response = await fetch(path, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(getUiCopy().messages.audioMetaLoadFailed(path));
+    }
+
+    const rows = parseCsvRows(await response.text());
+    if (rows.length < 2) {
+      throw new Error(getUiCopy().messages.audioMetaLoadFailed(path));
+    }
+
+    const [header, ...records] = rows;
+    const headerIndex = new Map(header.map((name, index) => [name, index]));
+    const requiredColumns = [
+      "audio_file",
+      "voice_name",
+      "sha256",
+      "generated_at",
+      "generator_version",
+      "project_id",
+      "sample_rate_hz",
+    ];
+
+    if (requiredColumns.some((column) => !headerIndex.has(column))) {
+      throw new Error(getUiCopy().messages.audioMetaLoadFailed(path));
+    }
+
+    const index = new Map();
+    records.forEach((record) => {
+      const audioFile = record[headerIndex.get("audio_file")] || "";
+      if (!audioFile) return;
+      index.set(audioFile, {
+        audioFile,
+        voiceName: record[headerIndex.get("voice_name")] || "",
+        sha256: record[headerIndex.get("sha256")] || "",
+        generatedAt: record[headerIndex.get("generated_at")] || "",
+        generatorVersion: record[headerIndex.get("generator_version")] || "",
+        projectId: record[headerIndex.get("project_id")] || "",
+        sampleRateHz: record[headerIndex.get("sample_rate_hz")] || "",
+      });
+    });
+    return index;
+  }
+
+  function audioFileKeyFromPath(audioPath) {
+    const parts = String(audioPath || "").split("/").filter(Boolean);
+    if (parts.length < 2) return String(audioPath || "");
+    return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
   }
 
   function isEditableTarget(target) {
@@ -889,6 +1010,7 @@
     stopTrialTimer();
     hideTrialActions();
     mainDisplayEl.style.display = "none";
+    if (messagePanelEl) messagePanelEl.style.display = "flex";
     messageEl.textContent = text;
     if (messagePanelEl) messagePanelEl.classList.remove("decision-active");
     messageEl.classList.remove("decision-message");
@@ -900,24 +1022,102 @@
     document.body.classList.remove("presenting");
   }
 
+  function getBaseStimulusFontPx() {
+    if (window.matchMedia("(max-width: 640px)").matches) return 40;
+    if (window.matchMedia("(max-height: 640px)").matches) return 44;
+    return 60;
+  }
+
+  function getBaseStimulusHintFontPx() {
+    if (window.matchMedia("(max-width: 640px)").matches) return 16;
+    if (window.matchMedia("(max-height: 700px)").matches) return 15;
+    return 18;
+  }
+
+  function fitStimulusText(text) {
+    if (!jpWordEl || !mainDisplayEl) return;
+
+    jpWordEl.textContent = text || "";
+    jpWordEl.style.fontSize = `${getBaseStimulusFontPx()}px`;
+    jpWordEl.style.whiteSpace = "nowrap";
+    if (trialHintEl) {
+      trialHintEl.style.fontSize = `${getBaseStimulusHintFontPx()}px`;
+    }
+    mainDisplayEl.style.gap = window.matchMedia("(max-height: 700px)").matches
+      ? "10px"
+      : "16px";
+
+    const maxWidth = mainDisplayEl.clientWidth;
+    const maxHeight = mainDisplayEl.clientHeight;
+    if (!maxWidth || !maxHeight) return;
+
+    let fontSize =
+      parseFloat(jpWordEl.style.fontSize) || getBaseStimulusFontPx();
+    while (
+      (jpWordEl.scrollWidth > maxWidth ||
+        mainDisplayEl.scrollHeight > maxHeight) &&
+      fontSize > STIMULUS_MIN_FONT_PX
+    ) {
+      fontSize -= STIMULUS_FONT_STEP_PX;
+      jpWordEl.style.fontSize = `${fontSize}px`;
+    }
+
+    if (jpWordEl.scrollWidth > maxWidth) {
+      jpWordEl.style.whiteSpace = "normal";
+      while (
+        mainDisplayEl.scrollHeight > maxHeight &&
+        fontSize > STIMULUS_MIN_FONT_PX
+      ) {
+        fontSize -= STIMULUS_FONT_STEP_PX;
+        jpWordEl.style.fontSize = `${fontSize}px`;
+      }
+    }
+
+    if (!trialHintEl) return;
+
+    let hintFontSize =
+      parseFloat(trialHintEl.style.fontSize) || getBaseStimulusHintFontPx();
+    while (
+      mainDisplayEl.scrollHeight > maxHeight &&
+      hintFontSize > STIMULUS_HINT_MIN_FONT_PX
+    ) {
+      hintFontSize -= STIMULUS_HINT_FONT_STEP_PX;
+      trialHintEl.style.fontSize = `${hintFontSize}px`;
+    }
+  }
+
+  function refreshRedownloadButton() {
+    const shouldShow =
+      Boolean(lastZipBlob && lastZipName) &&
+      !document.body.classList.contains("running");
+    redownloadZipBtn.classList.toggle("hidden", !shouldShow);
+    redownloadZipBtn.disabled = !shouldShow;
+  }
+
   function showStimulus(trial, pass, takeNo) {
     hideTrialActions();
-    if (messagePanelEl) messagePanelEl.classList.remove("decision-active");
+    if (messagePanelEl) {
+      messagePanelEl.classList.remove("decision-active");
+      messagePanelEl.style.display = "none";
+    }
     messageEl.classList.remove("long-message", "decision-message");
     messageEl.style.display = "none";
     mainDisplayEl.style.display = "flex";
-    jpWordEl.textContent = trial.displayText || trial.jp;
     trialHintEl.textContent = getUiCopy().messages.trialHint(
       pass.shortInstruction,
       takeNo,
     );
+    fitStimulusText(trial.displayText || trial.word);
     document.body.classList.add("presenting");
   }
 
   function hideStimulus() {
     mainDisplayEl.style.display = "none";
+    if (messagePanelEl) {
+      messagePanelEl.style.display = "flex";
+      messagePanelEl.classList.remove("decision-active");
+    }
     messageEl.style.display = "none";
-    if (messagePanelEl) messagePanelEl.classList.remove("decision-active");
     messageEl.classList.remove("long-message", "decision-message");
     hideTrialActions();
     stopTrialTimer();
@@ -954,6 +1154,7 @@
     stopTrialTimer();
     trialTimerActive = true;
     trialTimerEl.style.display = "block";
+    fitStimulusText(jpWordEl.textContent);
     const start = performance.now();
 
     const tick = (now) => {
@@ -1119,11 +1320,24 @@
   }
 
   function isAcceptedRecoveryRow(row) {
-    if (!row || row.phase !== "main") return false;
+    if (!row) return false;
     return (
       row.accepted !== false &&
       row.recordingDecision !== "pending" &&
       row.recordingDecision !== "retaken"
+    );
+  }
+
+  function isAcceptedMainRecoveryRow(row) {
+    return isAcceptedRecoveryRow(row) && row.phase === "main";
+  }
+
+  function isSavedRecoveryZipRecord(record) {
+    return Boolean(
+      record &&
+        Number.isFinite(record.passIndex) &&
+        record.zipBlob &&
+        record.zipName,
     );
   }
 
@@ -1163,7 +1377,7 @@
   async function loadRecoverySnapshot(sessionId) {
     return withRecoveryDb(async (db) => {
       const tx = db.transaction(
-        [RECOVERY_SESSIONS_STORE, RECOVERY_TRIALS_STORE],
+        [RECOVERY_SESSIONS_STORE, RECOVERY_TRIALS_STORE, RECOVERY_ZIPS_STORE],
         "readonly",
       );
       const metaReq = tx.objectStore(RECOVERY_SESSIONS_STORE).get(sessionId);
@@ -1171,18 +1385,26 @@
         .objectStore(RECOVERY_TRIALS_STORE)
         .index(RECOVERY_BY_SESSION_INDEX)
         .getAll(IDBKeyRange.only(sessionId));
-      const [meta, trialRecords] = await Promise.all([
+      const zipReq = tx
+        .objectStore(RECOVERY_ZIPS_STORE)
+        .index(RECOVERY_BY_SESSION_INDEX)
+        .getAll(IDBKeyRange.only(sessionId));
+      const [meta, trialRecords, zipRecords] = await Promise.all([
         idbRequest(metaReq),
         idbRequest(trialReq),
+        idbRequest(zipReq),
       ]);
       await idbTxDone(tx);
       const sorted = (trialRecords || [])
         .filter((r) => r && r.row && Number.isFinite(r.serialNo))
         .sort((a, b) => a.serialNo - b.serialNo);
-      const rows = sorted.map((r) => r.row).filter(isAcceptedRecoveryRow);
+      const rows = sorted.map((r) => r.row).filter(isAcceptedMainRecoveryRow);
       return {
         meta: meta || null,
         trialRecords: sorted,
+        zipRecords: (zipRecords || [])
+          .filter(isSavedRecoveryZipRecord)
+          .sort((a, b) => (a.passIndex || 0) - (b.passIndex || 0)),
         rows,
       };
     });
@@ -1239,7 +1461,12 @@
     if (!isAcceptedRecoveryRow(row)) return false;
     if (!filter) return true;
     if (filter.phase && row.phase !== filter.phase) return false;
-    if (filter.passIndex && row.passIndex !== filter.passIndex) return false;
+    if (
+      Number.isFinite(filter.passIndex) &&
+      row.passIndex !== filter.passIndex
+    ) {
+      return false;
+    }
     return true;
   }
 
@@ -1413,12 +1640,9 @@
     stopTrialTimer();
     hideProgress();
     mainDisplayEl.style.display = "none";
+    if (messagePanelEl) messagePanelEl.style.display = "flex";
     const levelText = rec ? `\n\n${formatRecordingLevel(rec)}` : "";
-    const displayText = trial.displayText || trial.jp;
-    const trialLabel =
-      displayText && displayText !== trial.word
-        ? `${displayText} / ${trial.word}`
-        : trial.word;
+    const trialLabel = trial.displayText || trial.word;
     messageEl.textContent = getUiCopy().messages.trialDecision({
       passLabel: pass.label,
       trialLabel,
@@ -1465,6 +1689,7 @@
     stopTrialTimer();
     hideProgress();
     mainDisplayEl.style.display = "none";
+    if (messagePanelEl) messagePanelEl.style.display = "flex";
     messageEl.textContent = promptText;
     if (messagePanelEl) messagePanelEl.classList.add("decision-active");
     messageEl.classList.add("long-message", "decision-message");
@@ -1597,7 +1822,13 @@
     };
   }
 
-  function buildMainWordOrder(counterbalance) {
+  function getMainDisplayText(item, nativeLanguageId) {
+    if (nativeLanguageId === "english") return item.word;
+    if (nativeLanguageId === "chinese") return item.zh || item.word;
+    return item.jp || item.word;
+  }
+
+  function buildMainWordOrder(counterbalance, nativeLanguageId) {
     const rng1 = mulberry32(counterbalance.numericId * 1000 + 11);
     const rng2 = mulberry32(counterbalance.numericId * 1000 + 13);
     const orderedList1 = seededShuffle(LIST1, rng1);
@@ -1609,6 +1840,7 @@
       wordsByList[listId].forEach((item) => {
         words.push({
           ...item,
+          displayText: getMainDisplayText(item, nativeLanguageId),
           blockIndex: words.length + 1,
           blockTotal: STIMULI.length,
           talker: counterbalance.singleTalker,
@@ -1621,7 +1853,7 @@
   }
 
   function buildRecordingPasses(counterbalance, nativeLanguageId) {
-    const words = buildMainWordOrder(counterbalance);
+    const words = buildMainWordOrder(counterbalance, nativeLanguageId);
     return getPassDefinitions(nativeLanguageId).map((pass) => ({
       ...pass,
       trials: words.map((word, idx) => ({
@@ -1945,10 +2177,18 @@
     "list",
     "word",
     "japanese",
+    "display_text",
     "take_no",
     "talker_id",
     "talker_label",
     "stimulus_file",
+    "stimulus_audio_file",
+    "stimulus_voice_name",
+    "stimulus_sha256",
+    "stimulus_generated_at",
+    "stimulus_generator_version",
+    "stimulus_project_id",
+    "stimulus_sample_rate_hz",
     "recording_file",
     "trial_window_ms",
     "recording_duration_ms",
@@ -1988,10 +2228,18 @@
           r.list,
           r.word,
           r.jp,
+          r.displayText || "",
           r.takeNo,
           r.talkerId,
           r.talkerLabel,
           r.stimulusFile,
+          r.stimulusAudioFile || "",
+          r.stimulusVoiceName || "",
+          r.stimulusSha256 || "",
+          r.stimulusGeneratedAt || "",
+          r.stimulusGeneratorVersion || "",
+          r.stimulusProjectId || "",
+          r.stimulusSampleRateHz || "",
           r.recordingFile,
           r.trialWindowMs,
           r.recordingDurationMs.toFixed(3),
@@ -2144,6 +2392,7 @@
     stopMicMeter();
     hideProgress();
     setLog("");
+    refreshRedownloadButton();
   }
 
   function exitExperimentScreen() {
@@ -2151,6 +2400,7 @@
     document.body.classList.remove("running");
     hideProgress();
     hideStimulus();
+    refreshRedownloadButton();
   }
 
   function getRowsForPass(passIndex) {
@@ -2160,16 +2410,26 @@
         (row) =>
           row.phase === "main" &&
           row.passIndex === passIndex &&
-          isAcceptedRecoveryRow(row),
+          isAcceptedMainRecoveryRow(row),
       )
       .sort((a, b) => a.trialInPass - b.trialInPass);
+  }
+
+  function hasSavedZipForPass(passIndex) {
+    return Boolean(
+      preparedSession &&
+        preparedSession.savedZipPassIndices &&
+        preparedSession.savedZipPassIndices.has(passIndex),
+    );
   }
 
   function getNextPendingPass() {
     if (!preparedSession) return null;
     return (
       preparedSession.passes.find(
-        (pass) => getRowsForPass(pass.passIndex).length < pass.trials.length,
+        (pass) =>
+          getRowsForPass(pass.passIndex).length < pass.trials.length ||
+          !hasSavedZipForPass(pass.passIndex),
       ) || null
     );
   }
@@ -2191,7 +2451,7 @@
     }
     const done = getRowsForPass(pass.passIndex).length;
     startPassBtn.textContent =
-      done > 0
+      done > 0 || hasSavedZipForPass(pass.passIndex)
         ? messages.resumePassButton(pass.label)
         : messages.startPassButton(pass.label);
     startPassBtn.classList.remove("hidden");
@@ -2212,7 +2472,18 @@
     try {
       enterExperimentScreen();
       setStatus(getUiCopy().messages.practiceStartStatus);
-      const practiceStats = await runPracticePass(preparedSession.practicePass);
+      const { practiceStats, acceptedTrials } = await runPracticePass(
+        preparedSession.practicePass,
+      );
+      const { zipBlob, zipName } = await buildPracticeZip(
+        preparedSession.practicePass,
+        acceptedTrials,
+      );
+      lastZipBlob = zipBlob;
+      lastZipName = zipName;
+      await saveRecoveryZip(preparedSession.sessionId, 0, zipName, zipBlob);
+      preparedSession.savedZipPassIndices.add(0);
+      triggerDownload(zipBlob, zipName);
       preparedSession.practiceCompleted = true;
       await mergeRecoverySessionMeta(preparedSession.sessionId, {
         practiceCompleted: true,
@@ -2229,7 +2500,7 @@
           ? getUiCopy().messages.practiceDoneNeedsAttention
           : getUiCopy().messages.practiceDoneOk,
       );
-      setLog(getUiCopy().messages.practiceLog);
+      setLog(`${getUiCopy().messages.practiceLog}\n${getUiCopy().messages.saved(zipName)}`);
       showMessage(getUiCopy().messages.practiceDoneMessage);
       refreshStartButton();
     } catch (err) {
@@ -2337,13 +2608,22 @@
     );
   }
 
-  function buildRow({ pass, trial, takeNo, serialNo, recordingFile, timing }) {
+  function buildRow({
+    pass,
+    trial,
+    takeNo,
+    serialNo,
+    recordingFile,
+    timing,
+    phase = "main",
+  }) {
+    const stimulusAudioMeta = trial.audioMeta || null;
     return {
       participantId: preparedSession.participantId,
       nativeLanguage: preparedSession.nativeLanguage,
       experimentVersion: EXPERIMENT_VERSION,
       serialNo,
-      phase: "main",
+      phase,
       passIndex: pass.passIndex,
       passId: pass.id,
       passLabel: pass.label,
@@ -2356,10 +2636,19 @@
       list: trial.list,
       word: trial.word,
       jp: trial.jp,
+      displayText: trial.displayText || trial.word,
       takeNo,
       talkerId: trial.talker.id,
       talkerLabel: trial.talker.label,
       stimulusFile: trial.audioPath,
+      stimulusAudioFile:
+        stimulusAudioMeta?.audioFile || audioFileKeyFromPath(trial.audioPath),
+      stimulusVoiceName: stimulusAudioMeta?.voiceName || "",
+      stimulusSha256: stimulusAudioMeta?.sha256 || "",
+      stimulusGeneratedAt: stimulusAudioMeta?.generatedAt || "",
+      stimulusGeneratorVersion: stimulusAudioMeta?.generatorVersion || "",
+      stimulusProjectId: stimulusAudioMeta?.projectId || "",
+      stimulusSampleRateHz: stimulusAudioMeta?.sampleRateHz || "",
       recordingFile,
       trialWindowMs: TRIAL_WINDOW_MS,
       recordingDurationMs: timing.rec.durationMs,
@@ -2459,6 +2748,7 @@
     trial,
     phaseStartPerf,
   }) {
+    const serialNo = trial.trialInPass;
     let takeNo = 0;
 
     while (true) {
@@ -2478,6 +2768,21 @@
         takeNo -= 1;
         continue;
       }
+      const recordingFile = buildRecordingFileName({
+        pass,
+        trial,
+        takeNo,
+        serialNo,
+      });
+      const row = buildRow({
+        pass,
+        trial,
+        takeNo,
+        serialNo,
+        recordingFile,
+        timing,
+        phase: "practice",
+      });
       const decision = await waitForTrialDecision(
         pass,
         trial,
@@ -2485,8 +2790,17 @@
         timing.rec,
       );
       if (decision === "accept") {
-        return timing.rec;
+        row.recordingDecision = "accepted";
+        row.accepted = true;
+        row.acceptedAt = new Date().toISOString();
+        return {
+          row,
+          wavBytes: timing.rec.wavBytes,
+          rec: timing.rec,
+        };
       }
+      row.recordingDecision = "retaken";
+      row.accepted = false;
     }
   }
 
@@ -2499,26 +2813,34 @@
 
     const phaseStartPerf = performance.now();
     const practiceStats = [];
+    const acceptedTrials = [];
 
     for (const trial of pass.trials) {
       showProgress(completed, totalTrials, label);
-      const rec = await recordPracticeTrialWithRetake({
+      const result = await recordPracticeTrialWithRetake({
         pass,
         trial,
         phaseStartPerf,
       });
+      acceptedTrials.push({
+        row: result.row,
+        file: {
+          name: result.row.recordingFile,
+          bytes: new Uint8Array(result.wavBytes),
+        },
+      });
       practiceStats.push({
         word: trial.word,
         displayText: trial.displayText,
-        rms: rec.rms,
-        peak: rec.peak,
-        levelCode: rec.levelCode,
+        rms: result.rec.rms,
+        peak: result.rec.peak,
+        levelCode: result.rec.levelCode,
       });
       completed += 1;
       showProgress(completed, totalTrials, label);
     }
 
-    return practiceStats;
+    return { practiceStats, acceptedTrials };
   }
 
   async function runPass(pass) {
@@ -2552,15 +2874,11 @@
     );
   }
 
-  async function buildPassZip(pass) {
+  async function buildZipFromArtifacts(pass, artifacts) {
     const baseDir = sanitizeName(preparedSession.participantId);
     const safePass = sanitizeName(pass.id);
     const outputPrefix = `${baseDir}/pass${pad2(pass.passIndex)}_${safePass}`;
-    const artifacts = await getRecoveryArtifacts(preparedSession.sessionId, {
-      phase: "main",
-      passIndex: pass.passIndex,
-    });
-    const rows = artifacts.rows.sort((a, b) => a.trialInPass - b.trialInPass);
+    const rows = artifacts.rows.slice().sort((a, b) => a.trialInPass - b.trialInPass);
     const logTable = buildLogTable(rows);
     const logBytes = await buildXlsxBytes(
       logTable,
@@ -2598,6 +2916,21 @@
     return { zipBlob, zipName, rows };
   }
 
+  async function buildPassZip(pass) {
+    const artifacts = await getRecoveryArtifacts(preparedSession.sessionId, {
+      phase: "main",
+      passIndex: pass.passIndex,
+    });
+    return buildZipFromArtifacts(pass, artifacts);
+  }
+
+  async function buildPracticeZip(pass, acceptedTrials) {
+    return buildZipFromArtifacts(pass, {
+      rows: acceptedTrials.map((trial) => trial.row),
+      files: acceptedTrials.map((trial) => trial.file),
+    });
+  }
+
   async function refreshRecoveredRows() {
     if (!preparedSession) return;
     const snapshot = await loadRecoverySnapshot(preparedSession.sessionId);
@@ -2616,6 +2949,9 @@
     );
 
     let recoverySnapshot = await loadRecoverySnapshot(sessionId);
+    let savedZipPassIndices = new Set(
+      (recoverySnapshot.zipRecords || []).map((record) => record.passIndex),
+    );
     const hasIncompatibleDraft =
       recoverySnapshot.meta &&
       (recoverySnapshot.meta.participantId !== participantId ||
@@ -2623,16 +2959,26 @@
         recoverySnapshot.meta.counterbalanceIndex !==
           counterbalance.conditionIndex ||
         recoverySnapshot.meta.experimentVersion !== EXPERIMENT_VERSION);
+    const hasCompletedRowsWithAllPassZips =
+      (recoverySnapshot.rows?.length || 0) >= plannedTrials &&
+      passes.every((pass) => savedZipPassIndices.has(pass.passIndex));
     const hasCompletedRowsWithoutMeta =
       !recoverySnapshot.meta &&
       (recoverySnapshot.rows?.length || 0) >= plannedTrials;
+    const hasOrphanZipDraft =
+      !recoverySnapshot.meta &&
+      (recoverySnapshot.rows?.length || 0) === 0 &&
+      savedZipPassIndices.size > 0;
     if (
       hasIncompatibleDraft ||
+      hasCompletedRowsWithAllPassZips ||
       recoverySnapshot.meta?.allPassesCompleted ||
-      hasCompletedRowsWithoutMeta
+      hasCompletedRowsWithoutMeta ||
+      hasOrphanZipDraft
     ) {
       await clearRecoverySession(sessionId);
       recoverySnapshot = { meta: null, trialRecords: [], rows: [] };
+      savedZipPassIndices = new Set();
     }
 
     setStatus(getUiCopy().messages.checkingMic);
@@ -2649,7 +2995,13 @@
     try {
       recorder = new WavRecorder(stream);
       setStatus(getUiCopy().messages.loadingAudio);
+      const audioMetaByFile = await loadAudioMetaIndex(STIMULUS_META_CSV_PATH);
       const audioMap = await preloadAudio(audioPaths);
+      passes.forEach((pass) => {
+        pass.trials.forEach((trial) => {
+          trial.audioMeta = audioMetaByFile.get(audioFileKeyFromPath(trial.audioPath)) || null;
+        });
+      });
       const volumeCheckDone = Boolean(
         recoverySnapshot.meta?.volumeCheckCompleted,
       );
@@ -2682,6 +3034,8 @@
         audioMap,
         recorder,
         rows: recoverySnapshot.rows || [],
+        savedZipPassIndices,
+        hasRecoveryMeta: Boolean(recoverySnapshot.meta),
         volumeCheckCompleted: volumeCheckDone,
         initialRecoveredTrials: recoverySnapshot.rows?.length || 0,
       };
@@ -2789,6 +3143,7 @@
         zipName,
         zipBlob,
       );
+      preparedSession.savedZipPassIndices.add(pass.passIndex);
       triggerDownload(zipBlob, zipName);
 
       await mergeRecoverySessionMeta(preparedSession.sessionId, {
@@ -2799,8 +3154,7 @@
 
       exitExperimentScreen();
       const nextPass = getNextPendingPass();
-      redownloadZipBtn.classList.remove("hidden");
-      redownloadZipBtn.disabled = false;
+      refreshRedownloadButton();
 
       if (nextPass) {
         setStatus(
@@ -2815,14 +3169,8 @@
         showMessage(getUiCopy().messages.allDoneMessage);
         startPassBtn.classList.add("hidden");
         startPassBtn.disabled = true;
-        await mergeRecoverySessionMeta(preparedSession.sessionId, {
-          allPassesCompleted: true,
-          phase: "completed",
-        });
         await preparedSession.recorder.dispose();
-        await clearRecoverySession(preparedSession.sessionId, {
-          preserveZips: true,
-        });
+        await clearRecoverySession(preparedSession.sessionId);
         preparedSession = null;
         preloadBtn.disabled = false;
         nativeLanguageSelect.disabled = false;
@@ -2879,8 +3227,7 @@
     volumeCheckBtn.disabled = true;
     startPassBtn.classList.add("hidden");
     startPassBtn.disabled = true;
-    redownloadZipBtn.classList.add("hidden");
-    redownloadZipBtn.disabled = true;
+    refreshRedownloadButton();
     setLog("");
 
     try {
@@ -2891,18 +3238,19 @@
       );
       const completedTrials = preparedSession.rows.length;
       volumeCheckCompleted = Boolean(preparedSession.volumeCheckCompleted);
-      const latestZip = await getLatestRecoveryZip(preparedSession.sessionId);
+      const latestZip = preparedSession.hasRecoveryMeta
+        ? await getLatestRecoveryZip(preparedSession.sessionId)
+        : null;
       if (latestZip) {
         lastZipBlob = latestZip.zipBlob;
         lastZipName = latestZip.zipName;
-        redownloadZipBtn.classList.remove("hidden");
-        redownloadZipBtn.disabled = false;
       }
+      refreshRedownloadButton();
 
       setStatus(getUiCopy().messages.prepared);
       setLog(
         getUiCopy().messages.planLog({
-          nativeLanguage: NATIVE_LANGUAGES[nativeLanguageId].label,
+          nativeLanguage: localizedLanguageLabel(nativeLanguageId),
           passCount: preparedSession.passes.length,
           plannedTrials,
         }),
@@ -2966,5 +3314,10 @@
     if (startPassBtn.disabled) return;
     ev.preventDefault();
     runPassFlow();
+  });
+
+  window.addEventListener("resize", () => {
+    if (mainDisplayEl.style.display !== "flex") return;
+    fitStimulusText(jpWordEl.textContent);
   });
 })();

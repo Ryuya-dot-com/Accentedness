@@ -25,9 +25,15 @@ VOICE_PRESETS: dict[str, list[tuple[str, str]]] = {
     ]
 }
 
-# Per-voice pronunciation overrides for problematic items.
-PRONUNCIATION_OVERRIDES: dict[tuple[str, str], str] = {
-    ("m3_ryan", "acorn.mp3"): "A-corn",
+# Per-file pronunciation overrides for problematic items.
+# Use "default" for all voices, then add per-voice exceptions only when needed.
+PRONUNCIATION_OVERRIDES: dict[str, dict[str, str]] = {
+    "acorn.mp3": {
+        "m3_ryan": "A-corn",
+    },
+    "scapula.mp3": {
+        "default": "skap yuh luh",
+    },
 }
 
 
@@ -283,7 +289,8 @@ async def run(args: argparse.Namespace) -> int:
                 continue
 
             source_text = item["text"]
-            text = PRONUNCIATION_OVERRIDES.get((alias, item["filename"]), source_text)
+            override_spec = PRONUNCIATION_OVERRIDES.get(item["filename"], {})
+            text = override_spec.get(alias, override_spec.get("default", source_text))
 
             await synthesize(
                 text=text,

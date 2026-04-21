@@ -133,14 +133,19 @@
         overflow: hidden;
       }
       #jp-word {
+        width: fit-content;
         max-width: 100%;
+        margin: 0 auto;
         font-size: 3.75rem;
-        line-height: 1.2;
+        line-height: 1.18;
         font-weight: 700;
         letter-spacing: 0;
         color: #f5f5f5;
-        overflow-wrap: anywhere;
-        word-break: normal;
+        text-align: center;
+        overflow-wrap: break-word;
+        word-break: keep-all;
+        white-space: nowrap;
+        text-wrap: balance;
       }
       #trial-hint {
         width: 100%;
