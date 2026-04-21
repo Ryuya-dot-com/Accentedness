@@ -1,9 +1,10 @@
 (() => {
   const TRIAL_WINDOW_MS = 4000;
+  const POST_AUDIO_TO_BEEP_MS = 500;
   const RECORDING_BEEP_MS = 180;
   const RECORDING_BEEP_HZ = 1000;
   const RECORDING_BEEP_GAIN = 0.06;
-  const EXPERIMENT_VERSION = "learning_phase_v5.1.0";
+  const EXPERIMENT_VERSION = "learning_phase_v5.2.0";
   const EXPERIMENT_BUILD_DATE = "2026-04-21";
   const RECOVERY_DB_NAME = "accentedness_learning_recovery";
   const RECOVERY_DB_VERSION = 2;
@@ -13,6 +14,8 @@
   const RECOVERY_BY_SESSION_INDEX = "by_session";
   const STIMULUS_FONT_STEP_PX = 2;
   const STIMULUS_MIN_FONT_PX = 30;
+  const STIMULUS_GLOSS_FONT_STEP_PX = 1;
+  const STIMULUS_GLOSS_MIN_FONT_PX = 15;
   const STIMULUS_HINT_FONT_STEP_PX = 1;
   const STIMULUS_HINT_MIN_FONT_PX = 13;
   const STIMULUS_META_CSV_PATH = "../Stimuli/audio_en_6voices/audio_meta.csv";
@@ -735,6 +738,7 @@
   const progressLabelEl = document.getElementById("progress-label");
   const mainDisplayEl = document.getElementById("main-display");
   const jpWordEl = document.getElementById("jp-word");
+  const trialGlossEl = document.getElementById("trial-gloss");
   const trialHintEl = document.getElementById("trial-hint");
   const trialTimerEl = document.getElementById("trial-timer");
   const trialTimerFillEl = document.getElementById("trial-timer-fill");
@@ -1034,12 +1038,36 @@
     return 18;
   }
 
-  function fitStimulusText(text) {
+  function getBaseStimulusGlossFontPx() {
+    if (window.matchMedia("(max-width: 640px)").matches) return 22;
+    if (window.matchMedia("(max-height: 700px)").matches) return 20;
+    return 30;
+  }
+
+  function getTrialGlossText(trial) {
+    const gloss = String(trial?.displayText || "").trim();
+    const word = String(trial?.word || "").trim();
+    if (!gloss || gloss === word) return "";
+    return gloss;
+  }
+
+  function getTrialLabelText(trial) {
+    const word = String(trial?.word || "").trim();
+    const gloss = getTrialGlossText(trial);
+    return gloss ? `${word}\n${gloss}` : word;
+  }
+
+  function fitStimulusText(wordText, glossText = "") {
     if (!jpWordEl || !mainDisplayEl) return;
 
-    jpWordEl.textContent = text || "";
+    jpWordEl.textContent = wordText || "";
     jpWordEl.style.fontSize = `${getBaseStimulusFontPx()}px`;
     jpWordEl.style.whiteSpace = "nowrap";
+    if (trialGlossEl) {
+      trialGlossEl.textContent = glossText || "";
+      trialGlossEl.classList.toggle("hidden", !glossText);
+      trialGlossEl.style.fontSize = `${getBaseStimulusGlossFontPx()}px`;
+    }
     if (trialHintEl) {
       trialHintEl.style.fontSize = `${getBaseStimulusHintFontPx()}px`;
     }
@@ -1070,6 +1098,18 @@
       ) {
         fontSize -= STIMULUS_FONT_STEP_PX;
         jpWordEl.style.fontSize = `${fontSize}px`;
+      }
+    }
+
+    if (trialGlossEl && !trialGlossEl.classList.contains("hidden")) {
+      let glossFontSize =
+        parseFloat(trialGlossEl.style.fontSize) || getBaseStimulusGlossFontPx();
+      while (
+        mainDisplayEl.scrollHeight > maxHeight &&
+        glossFontSize > STIMULUS_GLOSS_MIN_FONT_PX
+      ) {
+        glossFontSize -= STIMULUS_GLOSS_FONT_STEP_PX;
+        trialGlossEl.style.fontSize = `${glossFontSize}px`;
       }
     }
 
@@ -1107,12 +1147,16 @@
       pass.shortInstruction,
       takeNo,
     );
-    fitStimulusText(trial.displayText || trial.word);
+    fitStimulusText(trial.word, getTrialGlossText(trial));
     document.body.classList.add("presenting");
   }
 
   function hideStimulus() {
     mainDisplayEl.style.display = "none";
+    if (trialGlossEl) {
+      trialGlossEl.textContent = "";
+      trialGlossEl.classList.add("hidden");
+    }
     if (messagePanelEl) {
       messagePanelEl.style.display = "flex";
       messagePanelEl.classList.remove("decision-active");
@@ -1154,7 +1198,7 @@
     stopTrialTimer();
     trialTimerActive = true;
     trialTimerEl.style.display = "block";
-    fitStimulusText(jpWordEl.textContent);
+    fitStimulusText(jpWordEl.textContent, trialGlossEl?.textContent || "");
     const start = performance.now();
 
     const tick = (now) => {
@@ -1642,7 +1686,7 @@
     mainDisplayEl.style.display = "none";
     if (messagePanelEl) messagePanelEl.style.display = "flex";
     const levelText = rec ? `\n\n${formatRecordingLevel(rec)}` : "";
-    const trialLabel = trial.displayText || trial.word;
+    const trialLabel = getTrialLabelText(trial);
     messageEl.textContent = getUiCopy().messages.trialDecision({
       passLabel: pass.label,
       trialLabel,
@@ -1823,7 +1867,7 @@
   }
 
   function getMainDisplayText(item, nativeLanguageId) {
-    if (nativeLanguageId === "english") return item.word;
+    if (nativeLanguageId === "english") return "";
     if (nativeLanguageId === "chinese") return item.zh || item.word;
     return item.jp || item.word;
   }
@@ -2560,6 +2604,7 @@
       audioOnsetEpochMs = Date.now();
       await playbackEnded;
 
+      await delay(POST_AUDIO_TO_BEEP_MS);
       await playRecordingStartBeep();
       trialStartEpochMs = Date.now();
       await preparedSession.recorder.start();
@@ -2985,8 +3030,8 @@
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
-        echoCancellation: false,
-        noiseSuppression: false,
+        echoCancellation: true,
+        noiseSuppression: true,
         autoGainControl: false,
       },
     });
@@ -3318,6 +3363,6 @@
 
   window.addEventListener("resize", () => {
     if (mainDisplayEl.style.display !== "flex") return;
-    fitStimulusText(jpWordEl.textContent);
+    fitStimulusText(jpWordEl.textContent, trialGlossEl?.textContent || "");
   });
 })();
